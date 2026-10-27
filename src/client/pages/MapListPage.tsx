@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useMapListStore } from "../stores/mapListStore";
 import { Brand, MapGlyph } from "../components/Brand";
 import { TitleDialog } from "../components/Dialog";
+import { ThemeToggle } from "../components/ThemeToggle";
 import type { MapSummary } from "../../shared/schema.js";
 export function MapListPage() {
   const s = useMapListStore(),
@@ -23,6 +24,7 @@ export function MapListPage() {
             <i />
             Your private workspace
           </span>
+          <ThemeToggle />
           <Link to="/trash" className="quiet-link">
             Trash <span aria-hidden="true">↗</span>
           </Link>

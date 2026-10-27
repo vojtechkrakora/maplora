@@ -30,6 +30,8 @@ import { handleEditorKey } from "../keyboard";
 import { Dialog } from "./Dialog";
 import { NodeContextMenu } from "./NodeContextMenu";
 import { connectorAppearance, nodeAppearance } from "../nodeStyle";
+import { ThemeToggle } from "./ThemeToggle";
+import { useThemeStore } from "../stores/themeStore";
 
 type MindNode = Node<
   {
@@ -175,6 +177,7 @@ function dropDescription(target: BranchDropTarget | null, nodes: MapNode[]) {
 }
 export function MindMapCanvas() {
   const s = useEditorStore(),
+    theme = useThemeStore((state) => state.theme),
     flow = useReactFlow(),
     [help, setHelp] = useState(false),
     [styleTarget, setStyleTarget] = useState<{
@@ -550,9 +553,12 @@ export function MindMapCanvas() {
             </span>
           </div>
         </div>
-        <button onClick={() => setHelp(true)} aria-label="Keyboard shortcuts">
-          ? <span className="desktop-label">Shortcuts</span>
-        </button>
+        <div className="editor-toolbar-actions">
+          <ThemeToggle />
+          <button onClick={() => setHelp(true)} aria-label="Keyboard shortcuts">
+            ? <span className="desktop-label">Shortcuts</span>
+          </button>
+        </div>
       </header>
       {(s.error || s.notice) && (
         <div
@@ -587,7 +593,7 @@ export function MindMapCanvas() {
         </p>
       )}
       <ReactFlow
-        colorMode="system"
+        colorMode={theme}
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}

@@ -4,6 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 import { MindMapCanvas } from "../../src/client/components/MindMapCanvas";
 import { useEditorStore } from "../../src/client/stores/editorStore";
 import { fixture } from "../fixtures";
+import { useThemeStore } from "../../src/client/stores/themeStore";
 const { flowProps, methods } = vi.hoisted(() => ({
   flowProps: { current: null as any },
   methods: {
@@ -39,6 +40,7 @@ vi.mock("@xyflow/react", async (importOriginal) => ({
   useViewport: () => ({ x: 0, y: 0, zoom: 1 }),
 }));
 beforeEach(() => {
+  useThemeStore.setState({ theme: "light" });
   const map = fixture();
   useEditorStore.setState({
     map,
@@ -50,6 +52,18 @@ beforeEach(() => {
     moveError: null,
     saving: "idle",
   });
+});
+it("switches the canvas color mode from the editor theme control without modifying the map", () => {
+  const original = structuredClone(useEditorStore.getState().map!);
+  render(
+    <MemoryRouter>
+      <MindMapCanvas />
+    </MemoryRouter>,
+  );
+  expect(flowProps.current.colorMode).toBe("light");
+  fireEvent.click(screen.getByRole("button", { name: "Switch to dark theme" }));
+  expect(flowProps.current.colorMode).toBe("dark");
+  expect(useEditorStore.getState().map).toEqual(original);
 });
 it("keeps measured dimensions across controlled selection updates so nodes remain clickable", () => {
   render(

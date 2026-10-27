@@ -17,6 +17,7 @@ import { TrashPage } from "../../src/client/pages/TrashPage";
 import { EditorPage } from "../../src/client/pages/EditorPage";
 import { useMapListStore } from "../../src/client/stores/mapListStore";
 import { fixture } from "../fixtures";
+import { useThemeStore } from "../../src/client/stores/themeStore";
 vi.mock("../../src/client/components/MindMapCanvas", async () => {
   const { useEditorStore } =
     await import("../../src/client/stores/editorStore");
@@ -45,7 +46,17 @@ afterAll(() => {
   globalThis.fetch = nativeFetch;
 });
 beforeEach(() => {
+  useThemeStore.setState({ theme: "light" });
   useMapListStore.setState({ maps: [], loading: false, error: null });
+});
+it("offers the theme toggle in the library without creating or saving maps", async () => {
+  handlers.use(http.get("*/api/maps", () => HttpResponse.json([])));
+  const user = userEvent.setup();
+  app();
+  await user.click(screen.getByRole("button", { name: "Switch to dark theme" }));
+  expect(document.documentElement.dataset.theme).toBe("dark");
+  expect(localStorage.getItem("maplora-theme")).toBe("dark");
+  expect(screen.getByRole("button", { name: "Switch to light theme" })).toBeInTheDocument();
 });
 function app(url = "/") {
   return render(

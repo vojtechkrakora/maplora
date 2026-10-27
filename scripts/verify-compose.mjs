@@ -59,6 +59,8 @@ try {
   assert(page.ok);
   const html = await page.text();
   assert(html.includes('id="root"'));
+  assert(html.includes("maplora-theme"));
+  assert(html.indexOf("maplora-theme") < html.indexOf("<body>"));
   const asset = html.match(/src="([^"]+\.js)"/)[1];
   assert((await fetch(base + asset)).ok);
   assert((await fetch(base + "/maps/12345678-1234-4234-8234-123456789012")).ok);
@@ -142,7 +144,7 @@ try {
   await request(`/api/trash/${map.id}/restore`, "POST");
   assert.deepEqual(await request(`/api/maps/${map.id}`), map);
   console.log(
-    "PASS: Compose build, static assets, SPA fallback, API, duplication, sibling order, branch moves, custom styles, bind-mounted JSON, restart, recreation, trash and restoration.",
+    "PASS: Compose build, static assets, theme bootstrap, SPA fallback, API, duplication, sibling order, branch moves, custom styles, bind-mounted JSON, restart, recreation, trash and restoration.",
   );
 } finally {
   await compose("down", "--remove-orphans");

@@ -2,6 +2,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type { MapNode, NodeStyle } from "../../shared/schema.js";
 import { connectorAppearance, nodeAppearance } from "../nodeStyle";
 import { useEditorStore } from "../stores/editorStore";
+import { useThemeStore } from "../stores/themeStore";
 
 function ColorField({
   label,
@@ -15,6 +16,7 @@ function ColorField({
   onChange(value: string | undefined): void;
 }) {
   const swatch = useRef<HTMLSpanElement>(null);
+  const theme = useThemeStore((state) => state.theme);
   const [color, setColor] = useState("#000000");
   useLayoutEffect(() => {
     // Resolve stored CSS colors and theme variables for the native color input.
@@ -29,7 +31,7 @@ function ColorField({
             .map((part) => Number(part).toString(16).padStart(2, "0"))
             .join(""),
       );
-  }, [value, fallback]);
+  }, [value, fallback, theme]);
   return (
     <div className="style-color-field">
       <label>

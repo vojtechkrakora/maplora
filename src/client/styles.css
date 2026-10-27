@@ -6,8 +6,8 @@
     BlinkMacSystemFont,
     "Segoe UI",
     sans-serif;
-  color: #253b33;
-  background: #f7f8f5;
+  color: var(--text);
+  background: var(--bg);
   font-synthesis: none;
   --bg: #f7f8f5;
   --surface: #fff;
@@ -19,7 +19,7 @@
   --grid: #d6ddd3;
   --node: #fff;
   --shadow: 0 4px 24px #263b3308;
-  color-scheme: light dark;
+  color-scheme: light;
 }
 * {
   box-sizing: border-box;
@@ -562,9 +562,23 @@ label {
   align-items: center;
   z-index: 5;
   pointer-events: none;
+  gap: 12px;
 }
 .editor-toolbar > * {
   pointer-events: auto;
+}
+.editor-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  flex-shrink: 0;
 }
 .editor-title {
   display: flex;
@@ -576,6 +590,10 @@ label {
   border-radius: 12px;
   box-shadow: var(--shadow);
   max-width: 75%;
+  min-width: 0;
+}
+.editor-title > div {
+  min-width: 0;
 }
 .editor-title > a {
   font-size: 22px;
@@ -861,27 +879,24 @@ label {
 .shortcut-list kbd {
   font-size: 11px;
 }
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #19221e;
-    --surface: #212c25;
-    --node: #25352b;
-    --text: #e0e8dd;
-    --muted: #93a494;
-    --border: #35443a;
-    --accent: #487452;
-    --edge: #64846c;
-    --grid: #344439;
-    color: var(--text);
-    background: var(--bg);
-  }
-  .error-banner {
-    background: #3e2925;
-    color: #e6afa6;
-  }
-  .brand-dot {
-    color: #87a484;
-  }
+:root[data-theme="dark"] {
+  --bg: #19221e;
+  --surface: #212c25;
+  --node: #25352b;
+  --text: #e0e8dd;
+  --muted: #93a494;
+  --border: #35443a;
+  --accent: #487452;
+  --edge: #64846c;
+  --grid: #344439;
+  color-scheme: dark;
+}
+:root[data-theme="dark"] .error-banner {
+  background: #3e2925;
+  color: #e6afa6;
+}
+:root[data-theme="dark"] .brand-dot {
+  color: #87a484;
 }
 @media (max-width: 850px) {
   .map-grid {
