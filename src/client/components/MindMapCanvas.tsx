@@ -1,20 +1,16 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   Background,
-  BaseEdge,
-  getBezierPath,
   Handle,
   Position,
   ReactFlow,
   useReactFlow,
-  type EdgeProps,
-  type Edge,
   type Node,
   type NodeChange,
   type NodeProps,
   type OnNodeDrag,
 } from "@xyflow/react";
-import type { MapFile, MapNode, NodeStyle } from "../../shared/schema.js";
+import type { MapFile, MapNode } from "../../shared/schema.js";
 import { allNodes, findParent } from "../../shared/tree.js";
 import { useEditorStore } from "../stores/editorStore";
 import {
@@ -29,11 +25,14 @@ import { Link } from "react-router-dom";
 import { handleEditorKey } from "../keyboard";
 import { Dialog } from "./Dialog";
 import { NodeContextMenu } from "./NodeContextMenu";
-import { connectorAppearance, nodeAppearance } from "../nodeStyle";
+import { nodeAppearance } from "../nodeStyle";
 import { ThemeToggle } from "./ThemeToggle";
 import { useThemeStore } from "../stores/themeStore";
 import { CopyMarkdownButton } from "./CopyMarkdownButton";
 import { ExportJsonButton } from "./ExportJsonButton";
+import { ExportPngButton } from "./ExportPngButton";
+import { MindMapEdge } from "./MindMapEdge";
+export { MindMapEdge } from "./MindMapEdge";
 
 type MindNode = Node<
   {
@@ -150,16 +149,6 @@ export function MindMapNode({ data, selected }: NodeProps<MindNode>) {
         </button>
       )}
     </div>
-  );
-}
-export function MindMapEdge(props: EdgeProps<Edge<{ style?: NodeStyle }>>) {
-  const [path] = getBezierPath(props);
-  return (
-    <BaseEdge
-      id={props.id}
-      path={path}
-      style={connectorAppearance(props.data?.style)}
-    />
   );
 }
 const nodeTypes = { mindmap: MindMapNode },
@@ -571,6 +560,7 @@ export function MindMapCanvas() {
         <div className="editor-toolbar-actions">
           <CopyMarkdownButton map={s.map!} />
           <ExportJsonButton map={s.map!} />
+          <ExportPngButton map={s.map!} />
           <ThemeToggle />
           <button onClick={() => setHelp(true)} aria-label="Keyboard shortcuts">
             ? <span className="desktop-label">Shortcuts</span>

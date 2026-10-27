@@ -634,7 +634,8 @@ label {
   flex-shrink: 0;
 }
 .copy-markdown,
-.export-json {
+.export-json,
+.export-png {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -642,6 +643,7 @@ label {
   white-space: nowrap;
 }
 .clipboard-toast,
+.export-progress-toast,
 .export-error-toast {
   position: fixed;
   bottom: 144px;
@@ -854,6 +856,24 @@ label {
 .measurement .mind-node {
   flex: none;
 }
+.png-export-host {
+  position: fixed;
+  left: -100000px;
+  top: 0;
+  pointer-events: none;
+}
+.png-measurement {
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+  width: max-content;
+}
+.png-export-canvas .react-flow {
+  background: white;
+}
+.png-export-canvas .react-flow__node {
+  transition: none;
+}
 .node-tools {
   position: absolute;
   z-index: 5;
@@ -1041,6 +1061,12 @@ label {
   .editor-title {
     gap: 12px;
     padding: 12px;
+  }
+  .editor-toolbar-actions {
+    gap: 4px;
+  }
+  .editor-toolbar-actions button {
+    padding: 8px;
   }
   .desktop-label {
     display: none;

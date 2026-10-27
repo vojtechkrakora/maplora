@@ -62,7 +62,18 @@ try {
   assert(html.includes("maplora-theme"));
   assert(html.indexOf("maplora-theme") < html.indexOf("<body>"));
   const asset = html.match(/src="([^"]+\.js)"/)[1];
-  assert((await fetch(base + asset)).ok);
+  const bundleResponse = await fetch(base + asset);
+  assert(bundleResponse.ok);
+  const pngChunk = (await bundleResponse.text()).match(
+    /\.\/pngExport-[\w-]+\.js/,
+  );
+  assert(
+    pngChunk,
+    "The PNG export module must be included in the production build",
+  );
+  const pngResponse = await fetch(new URL(pngChunk[0], base + asset));
+  assert(pngResponse.ok);
+  assert((await pngResponse.text()).includes("data:image/png;base64,"));
   assert((await fetch(base + "/maps/12345678-1234-4234-8234-123456789012")).ok);
   const summary = await request("/api/maps", "POST", {
     title: "Compose persistence verification",
@@ -169,7 +180,7 @@ try {
   await request(`/api/trash/${map.id}/restore`, "POST");
   assert.deepEqual(await request(`/api/maps/${map.id}`), map);
   console.log(
-    "PASS: Compose build, static assets, theme bootstrap, SPA fallback, API, duplication, JSON import with conflict replacement, sibling order, branch moves, custom styles, bind-mounted JSON, restart, recreation, trash and restoration.",
+    "PASS: Compose build, static assets including the PNG export module, theme bootstrap, SPA fallback, API, duplication, JSON import with conflict replacement, sibling order, branch moves, custom styles, bind-mounted JSON, restart, recreation, trash and restoration.",
   );
 } finally {
   await compose("down", "--remove-orphans");

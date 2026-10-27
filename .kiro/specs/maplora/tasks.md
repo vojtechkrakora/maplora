@@ -4,7 +4,7 @@
 
 This plan breaks Maplora into small, independently testable increments. Tasks are ordered so that each step produces a runnable, verifiable state of the application. The project is a TypeScript monorepo with a Vite-built React SPA served by a Hono API server inside a single Docker container. All data lives on the host filesystem as JSON files.
 
-MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Post-MVP requirements (Req 5, 10–11, 15, 17–20, 25–27) are optional tasks marked with `*`.
+MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Post-MVP requirements (Req 5, 10–11, 15, 17–20, 25–28) are optional tasks marked with `*`.
 
 ---
 
@@ -348,8 +348,8 @@ MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Po
     - Test valid v1 import; test Node ID conflict replacement; test invalid JSON rejection; test unsupported schema version rejection
     - _Requirements: 19.1, 19.3, 19.4, 19.5_
 
-- [ ] 21. PNG export (Post-MVP)
-  - [ ]* 21.1 Implement PNG export using html-to-image
+- [x] 21. PNG export (Post-MVP)
+  - [x]* 21.1 Implement PNG export using html-to-image
     - Export action in `EditorToolbar`: create local copy of tree with all nodes expanded; re-run layout; call `toPng` on React Flow container with `pixelRatio: 2`; download as `{sanitizedTitle}.png`
     - Restore collapsed state after export; export uses white background, no UI chrome
     - On failure: show error toast, cancel download
@@ -543,6 +543,16 @@ Import JSON in the library reads a selected file through FileReader and validate
 The returned summary updates the library without refetching or navigation. Successful imports clear search and cancel any pending search debounce while retaining the sort preference. Import is disabled during the initial library fetch and during an import; cancelled pickers have no effect. Invalid JSON, invalid map data, unsupported versions (including the detected version), file-read failures and server errors show a dialog. The same file can be retried after closing the error.
 
 All 231 automated tests passed across 22 files, including 42 new transfer and import cases covering live HTTP, full v1 data preservation, partial conflicts across active/trash files, concurrent imports, corrupt existing files, rejected JSON/schema/versions, atomic failure cleanup, Blob contents and filenames, URL cleanup, FileReader errors, keyboard/focus behavior, pending-search cancellation, in-flight guards, initial-fetch ordering and UI error/retry. Production build and formatting checks passed. Real Chrome verified actual downloads and the native file chooser, full hidden subtree/styles, exports during editing/drafts without map writes, keyboard activation, dark theme, responsive controls from 320–850px, fresh imported IDs, unchanged source data, library updates without refetching, validation dialogs, export failure/retry and server failure/retry, with no page exceptions. Browser checks used isolated temporary map data. Docker Compose verification passed the image build, static assets, SPA routing, API, JSON import with conflict replacement, imported and existing bind-mounted data after restart/recreation, map operations, trash and restoration. Tasks 21–22 remain deferred.
+
+## Task 21 Implementation Notes
+
+Task 21 implemented on 2026-10-27: Export PNG in the editor toolbar validates and snapshots the current in-memory map, expands every node in an independent copy, measures all labels with the existing node CSS, and reruns the bilateral layout. A separate offscreen React Flow instance renders the complete tree using static labels, the existing depth palette and custom styles, and the shared SVG connector renderer. Export waits for node/handle initialization and all expected nodes and connector paths before calling `html-to-image.toPng` with `pixelRatio: 2`, a white background and automatic downscaling disabled. The image excludes attribution, handles, interaction paths, collapse buttons, editor controls and selection outlines. Title-derived PNG filenames use the same sanitization as JSON exports.
+
+The editor's map, collapse states, selection, viewport, drafts, input text and save/history state are never changed. Pointer activation retains focus; native Enter/Space activation remains available. Only one export runs per button, with visible progress. Navigation or a map change aborts pending initialization/rasterization immediately and prevents stale downloads. Failures clean up temporary DOM, React roots, frames, timers and listeners, show an error toast and permit retry. Rendering times out after 15 seconds if the complete graph cannot initialize. Exports exceeding 32,767 pixels per side or 64 million pixels total at 2× resolution fail visibly instead of downloading clipped or downsampled output; browser canvas limits can be lower.
+
+The specified `html-to-image` dependency is pinned to 1.11.11 following React Flow's official download example, which warns of broken exports in later versions. The module loads only on demand; system fonts require no external requests. No server API, storage schema or data migration changed. Toolbar spacing was adjusted on narrow screens to fit the additional action, and SVG edge rendering and filename/download helpers are shared with existing features. Undo/redo (task 22) remains deferred.
+
+All 258 automated tests passed across 25 files, including 27 new cases for independent expansion, full bilateral layout/depths/source styles, padded bounds, root-only maps, invalid measurements, large-image rejection, UI filtering, 2×/white-background capture options, invalid raster output, download errors, cleanup, render timeouts, cancellation during initialization/rasterization, progress and repeated-click guards, keyboard/focus behavior, retries and map changes. Existing canvas tests now verify all three map export actions during editing, drafts, saving and save failures. Production build and formatting checks passed. Real Chrome verified actual PNG downloads, exact 2× dimensions, white opaque corner pixels, hidden styled leaves and colored solid/dashed/dotted connectors in raster pixels, Unicode/emoji, both themes, no UI/selection/handles, active editing/drafts without blur or writes, 320–1024px toolbar layout, raster failure/retry, native keyboard export, root-only maps, and an 80-node/79-edge multiline image in 1,286ms with unchanged live zoom/collapse state. Navigation cancelled real in-flight rasterization without a stale download, and an oversized map produced an error with cleanup. JSON transfer regression checks passed. Browser checks used isolated temporary data, with no browser exceptions or map writes. Docker Compose verification passed the image build, static assets including the lazy PNG module, SPA routing, API, JSON import, map operations, persisted JSON after restart/recreation, trash and restoration.
 
 ## Notes
 

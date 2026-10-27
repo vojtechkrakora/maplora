@@ -1,6 +1,7 @@
 import { ZodError } from "zod";
 import { MapFileSchema, type MapFile } from "../shared/schema.js";
 import { validateAndMigrate } from "../shared/mapValidation.js";
+import { downloadUrl, exportFilename } from "./download";
 
 export function parseMapJson(text: string): MapFile {
   let input: unknown;
@@ -37,13 +38,7 @@ export function readMapJson(file: File): Promise<MapFile> {
 }
 
 export function jsonFilename(title: string): string {
-  let name =
-    title
-      .replace(/[<>:"/\\|?*\u0000-\u001f\u007f]/g, "_")
-      .replace(/^[. ]+|[. ]+$/g, "") || "mind-map";
-  if (/^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(name))
-    name = `_${name}`;
-  return `${name}.json`;
+  return exportFilename(title, "json");
 }
 
 export function downloadMapJson(map: MapFile): void {
@@ -51,17 +46,12 @@ export function downloadMapJson(map: MapFile): void {
   const blob = new Blob([JSON.stringify(data, null, 2)], {
     type: "application/json",
   });
-  const anchor = document.createElement("a");
   const url = URL.createObjectURL(blob);
   let started = false;
   try {
-    anchor.href = url;
-    anchor.download = jsonFilename(data.title);
-    document.body.append(anchor);
-    anchor.click();
+    downloadUrl(url, jsonFilename(data.title));
     started = true;
   } finally {
-    anchor.remove();
     if (started) window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     else URL.revokeObjectURL(url);
   }

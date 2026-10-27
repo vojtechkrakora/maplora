@@ -67,7 +67,7 @@ it("switches the canvas color mode from the editor theme control without modifyi
   expect(useEditorStore.getState().map).toEqual(original);
 });
 it.each(["unselected", "editing", "draft", "saving", "error"])(
-  "keeps Copy as Markdown available while %s",
+  "keeps map exports available while %s",
   (state) => {
     const map = useEditorStore.getState().map!;
     useEditorStore.setState({
@@ -86,6 +86,8 @@ it.each(["unselected", "editing", "draft", "saving", "error"])(
     expect(
       screen.getByRole("button", { name: "Copy as Markdown" }),
     ).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Export JSON" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Export PNG" })).toBeEnabled();
   },
 );
 it("keeps measured dimensions across controlled selection updates so nodes remain clickable", () => {
