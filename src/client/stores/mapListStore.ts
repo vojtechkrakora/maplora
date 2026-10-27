@@ -9,6 +9,7 @@ interface MapListState {
   createMap(title: string): Promise<string>;
   renameMap(id: string, title: string): Promise<void>;
   deleteMap(id: string): Promise<void>;
+  duplicateMap(id: string): Promise<void>;
 }
 export const useMapListStore = create<MapListState>((set) => ({
   maps: [],
@@ -36,5 +37,9 @@ export const useMapListStore = create<MapListState>((set) => ({
   async deleteMap(id) {
     await api.deleteMap(id);
     set((s) => ({ maps: s.maps.filter((x) => x.id !== id) }));
+  },
+  async duplicateMap(id) {
+    const map = await api.duplicateMap(id);
+    set((s) => ({ maps: [map, ...s.maps] }));
   },
 }));

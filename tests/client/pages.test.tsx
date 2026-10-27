@@ -137,6 +137,57 @@ it("retains the card when deletion is cancelled and removes it when confirmed", 
     ).not.toBeInTheDocument(),
   );
 });
+it("adds a duplicate card without refetching the list or leaving the page", async () => {
+  const copy = {
+    ...summary,
+    id: "12345678-1234-4234-8234-123456789099",
+    title: `${summary.title} (Copy)`,
+  };
+  const list = vi.fn(() =>
+    HttpResponse.json([summary, { id: "bad", title: "bad.json", error: true }]),
+  );
+  let release!: () => void;
+  const responseReady = new Promise<void>((resolve) => { release = resolve; });
+  const duplicate = vi.fn(async () => {
+    await responseReady;
+    return HttpResponse.json(copy, { status: 201 });
+  });
+  handlers.use(
+    http.get("*/api/maps", list),
+    http.post("*/api/maps/:id/duplicate", duplicate),
+  );
+  const user = userEvent.setup();
+  app();
+  await user.click(await screen.findByRole("button", { name: `Duplicate ${summary.title}` }));
+  const button = screen.getByRole("button", { name: `Duplicate ${summary.title}` });
+  expect(button).toBeDisabled();
+  await user.click(button);
+  release();
+  expect(await screen.findByRole("heading", { name: copy.title })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: summary.title })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Duplicate bad.json" })).toBeDisabled();
+  expect(useMapListStore.getState().maps[0]).toEqual(copy);
+  expect(list).toHaveBeenCalledTimes(1);
+  expect(duplicate).toHaveBeenCalledTimes(1);
+});
+it("shows duplicate write failures, keeps the source card and allows retry", async () => {
+  let fail = true;
+  handlers.use(
+    http.get("*/api/maps", () => HttpResponse.json([summary])),
+    http.post("*/api/maps/:id/duplicate", () => fail
+      ? HttpResponse.json({ error: "Disk unavailable", code: "INTERNAL_ERROR" }, { status: 500 })
+      : HttpResponse.json({ ...summary, id: "copy", title: `${summary.title} (Copy)` }, { status: 201 })),
+  );
+  const user = userEvent.setup();
+  app();
+  await user.click(await screen.findByRole("button", { name: `Duplicate ${summary.title}` }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("Disk unavailable");
+  expect(useMapListStore.getState().maps).toEqual([summary]);
+  fail = false;
+  await user.click(screen.getByRole("button", { name: `Duplicate ${summary.title}` }));
+  expect(await screen.findByRole("heading", { name: `${summary.title} (Copy)` })).toBeInTheDocument();
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+});
 it("keeps create dialog open and shows a server write error", async () => {
   handlers.use(
     http.get("*/api/maps", () => HttpResponse.json([])),

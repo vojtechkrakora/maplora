@@ -33,7 +33,8 @@ The application has no authentication. Deploy it within a trusted private networ
 
 ## Editing
 
-- Create, rename, and open maps from the home screen. Titles accept 1–100 characters.
+- Create, rename, duplicate, and open maps from the home screen. Titles accept 1–100 characters.
+- **Duplicate** creates an independent copy with fresh map and node IDs, a new creation time, and revision 1. Its title ends in “ (Copy)”; long source titles are shortened to keep the result within 100 characters. Labels, branch order, collapse states, and stored styles are preserved.
 - Select a node and use the floating toolbar, double-click, or keyboard shortcuts. Node labels accept 1–200 characters.
 - Changes save automatically. The toolbar reports saving, saved, and failed states. Failed mutations roll back and offer **Retry change**.
 - A new node is a local draft until you confirm its text. Escape or an empty draft cancels it without a write.
@@ -88,9 +89,9 @@ The Compose verification requires a working local Docker daemon. It uses a separ
 
 ## Scope and limitations
 
-This implements MVP tasks 1–14 plus the Docker verification checkpoint in the Kiro plan. Tasks and test coverage are tracked in `.kiro/specs/maplora/tasks.md`. The bounded snapshot infrastructure requested by task 9.1 is present; undo/redo controls and shortcuts are intentionally deferred with task 22.
+This implements MVP tasks 1–14, post-MVP task 15 (duplicate maps), and the Docker verification checkpoint in the Kiro plan. Tasks and test coverage are tracked in `.kiro/specs/maplora/tasks.md`. The bounded snapshot infrastructure requested by task 9.1 is present; undo/redo controls and shortcuts are intentionally deferred with task 22.
 
-Duplicate maps, drag-to-reorder/reparent, custom styles, manual theme switching, import/export, PNG export, and undo/redo are outside this MVP. The UI follows the system color scheme. Schema v1 is the only supported version; a migration registry is ready for future versions, but no fictional older format is accepted.
+Drag-to-reorder/reparent, custom styles, manual theme switching, import/export, PNG export, and undo/redo remain deferred to tasks 16–22. The UI follows the system color scheme. Schema v1 is the only supported version; a migration registry is ready for future versions, but no fictional older format is accepted.
 
 Maps above 500 nodes show a performance warning. Measurements and layout run synchronously as specified by the approved `useMemo` implementation; unusually large maps can exceed the stated responsiveness targets. Multi-tab edits retry once; an operation whose target was deleted in another tab fails visibly rather than recreating it. Multi-process writers and external edits during use are unsupported.
 

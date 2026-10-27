@@ -279,13 +279,13 @@ MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Po
 - [x] 14. Checkpoint — MVP complete, all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 15. Duplicate map (Post-MVP)
-  - [ ]* 15.1 Implement duplicate map API endpoint and UI
+- [x] 15. Duplicate map (Post-MVP)
+  - [x]* 15.1 Implement duplicate map API endpoint and UI
     - `POST /api/maps/:mapId/duplicate`: deep-copies `MapFile`; assigns new Map ID and new Node IDs to every node; appends " (Copy)" to title; writes new file; returns new `MapSummary`
     - Add duplicate action to `MapCard`; on success append new card to list without page reload
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6_
 
-  - [ ]* 15.2 Write unit tests for duplicate endpoint
+  - [x]* 15.2 Write unit tests for duplicate endpoint
     - Assert new Map ID is different; assert all Node IDs differ from source; assert title ends with " (Copy)"; assert `revision=1` on new file
     - _Requirements: 5.2, 5.3_
 
@@ -386,13 +386,21 @@ MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Po
 
 Verification completed on 2026-10-27: 60 Vitest tests passed across 9 files, with 100 runs per property test; client/server production build and clean dependency installation passed. Browser checks passed on localhost and plain HTTP over the LAN. A 500-node map rendered in 619ms with 499 connectors and no measured label overlaps. Docker Compose built and ran the final image, served static assets and SPA routes, persisted JSON on the host, and preserved identical map data across restart and container recreation. Trash and restoration passed in the container. The production Compose service was left running on port 3000.
 
-- Tasks 1–14 and their optional MVP test tasks are implemented. Post-MVP feature tasks 15–22 remain deferred. Task 23 is used only for final deployment verification.
+- Tasks 1–14 and their optional MVP test tasks are implemented. Post-MVP progress is recorded below. Task 23 is used only for final deployment verification.
 - The snapshot stacks requested by task 9.1 are bounded at 50; undo/redo actions, controls and shortcuts remain deferred to task 22, including the undo/redo entries in Requirement 16.1.
 - Collapsed node labels retain their measured dimensions; only their descendants are excluded from layout. Giving the visible label a zero-size box would violate Requirement 14.3's non-overlap constraint.
 - Saves use a serialized operation queue, reapply the pending operation to the latest map on a 409, and retry once. Failed operations roll back and can be retried from the error banner. Late responses from previously opened maps are ignored.
 - New nodes stay as unsaved drafts until confirmed. UUID v4 creation also supports plain HTTP LAN deployments through Web Crypto's random-value API.
 - Schema version 1 is the sole supported format; the migration registry is present for future version increments.
 - `npm run verify:compose` builds and exercises an isolated single-container deployment, including bind-mounted file contents, static assets, restart and recreation. See README.md for exact run and backup instructions and known limitations.
+
+---
+
+## Post-MVP Implementation Notes
+
+Task 15 completed on 2026-10-27: map cards offer Duplicate, which calls `POST /api/maps/:mapId/duplicate` and inserts the returned card without a list reload or navigation. The file store creates a deep copy through the existing atomic write path, replaces every map/node ID, resets revision to 1, and sets fresh timestamps. Branch order, labels, collapse state and optional style fields are preserved. The source file remains unchanged. To reconcile the required " (Copy)" suffix with the schema's 100-character title limit, the source title is shortened only as needed, without splitting a surrogate pair.
+
+All 66 tests passed across 9 files, including six new duplication tests covering live HTTP, independent nested copies, title boundaries, invalid sources, write-failure cleanup, UI failure/retry and prevention of repeated in-flight requests. The production build passed. Docker Compose verification passed duplication, persisted JSON checks, restart/recreation, static assets, SPA routing, trash and restoration. Tasks 16–22 remain deferred.
 
 ---
 

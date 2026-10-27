@@ -76,6 +76,14 @@ export function createApp(store: MapFileStore, publicDir = "./dist/public") {
     await c.get("store").trashMap(UUIDSchema.parse(c.req.param("mapId")));
     return c.body(null, 204);
   });
+  app.post("/api/maps/:mapId/duplicate", async (c) =>
+    c.json(
+      summarize(
+        await c.get("store").duplicateMap(UUIDSchema.parse(c.req.param("mapId"))),
+      ),
+      201,
+    ),
+  );
   app.get("/api/trash", async (c) => c.json(await c.get("store").listTrash()));
   app.post("/api/trash/:mapId/restore", async (c) => {
     await c.get("store").restoreMap(UUIDSchema.parse(c.req.param("mapId")));

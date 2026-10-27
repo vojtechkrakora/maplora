@@ -119,6 +119,15 @@ it("reports cleanup failure explicitly", async () => {
     code: "CLEANUP_FAILED",
   });
 });
+it("cleans up a failed duplicate write and preserves the source", async () => {
+  const source = await store.createMap("Keep original");
+  const before = await fs.readFile(path.join(dir, `${source.id}.json`), "utf8");
+  vi.spyOn(fs, "rename").mockRejectedValueOnce(new Error("disk full"));
+  await expect(store.duplicateMap(source.id)).rejects.toThrow("disk full");
+  expect((await fs.readdir(dir)).sort()).toEqual(["_trash", `${source.id}.json`].sort());
+  expect(await fs.readFile(path.join(dir, `${source.id}.json`), "utf8")).toBe(before);
+  expect(await store.duplicateMap(source.id)).toMatchObject({ title: "Keep original (Copy)", revision: 1 });
+});
 it("trashes, restores without data loss, and permanently empties only trash JSON files", async () => {
   const map = await store.createMap("Keep me");
   await store.trashMap(map.id);

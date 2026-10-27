@@ -78,18 +78,32 @@ try {
     JSON.parse(await readFile(path.join(directory, `${map.id}.json`), "utf8")),
     map,
   );
+  const duplicate = await request(`/api/maps/${map.id}/duplicate`, "POST");
+  const copy = await request(`/api/maps/${duplicate.id}`);
+  assert.notEqual(copy.id, map.id);
+  assert.equal(copy.title, `${map.title} (Copy)`);
+  assert.equal(copy.revision, 1);
+  assert.notEqual(copy.root.id, map.root.id);
+  assert.notEqual(copy.root.children[0].id, map.root.children[0].id);
+  assert.equal(copy.root.children[0].text, map.root.children[0].text);
+  assert.deepEqual(
+    JSON.parse(await readFile(path.join(directory, `${copy.id}.json`), "utf8")),
+    copy,
+  );
   await compose("restart");
   await ready();
   assert.deepEqual(await request(`/api/maps/${map.id}`), map);
+  assert.deepEqual(await request(`/api/maps/${copy.id}`), copy);
   await compose("up", "-d", "--no-build", "--force-recreate");
   await ready();
   assert.deepEqual(await request(`/api/maps/${map.id}`), map);
+  assert.deepEqual(await request(`/api/maps/${copy.id}`), copy);
   await request(`/api/maps/${map.id}`, "DELETE");
   assert.equal((await request("/api/trash")).length, 1);
   await request(`/api/trash/${map.id}/restore`, "POST");
   assert.deepEqual(await request(`/api/maps/${map.id}`), map);
   console.log(
-    "PASS: Compose build, static assets, SPA fallback, API, bind-mounted JSON, restart, recreation, trash and restoration.",
+    "PASS: Compose build, static assets, SPA fallback, API, duplication, bind-mounted JSON, restart, recreation, trash and restoration.",
   );
 } finally {
   await compose("down", "--remove-orphans");

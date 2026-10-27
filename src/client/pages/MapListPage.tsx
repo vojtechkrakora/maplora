@@ -9,7 +9,8 @@ export function MapListPage() {
     navigate = useNavigate(),
     location = useLocation();
   const [dialog, setDialog] = useState<"create" | MapSummary | null>(null),
-    [error, setError] = useState<string | null>(location.state?.error ?? null);
+    [error, setError] = useState<string | null>(location.state?.error ?? null),
+    [duplicating, setDuplicating] = useState<Set<string>>(() => new Set());
   useEffect(() => {
     void s.fetchMaps();
   }, [s.fetchMaps]);
@@ -104,6 +105,27 @@ export function MapListPage() {
                     onClick={() => setDialog(map)}
                   >
                     Rename
+                  </button>
+                  <button
+                    disabled={map.error || duplicating.has(map.id)}
+                    aria-label={`Duplicate ${map.title}`}
+                    onClick={async () => {
+                      setDuplicating((ids) => new Set(ids).add(map.id));
+                      setError(null);
+                      try {
+                        await s.duplicateMap(map.id);
+                      } catch (e) {
+                        setError((e as Error).message);
+                      } finally {
+                        setDuplicating((ids) => {
+                          const next = new Set(ids);
+                          next.delete(map.id);
+                          return next;
+                        });
+                      }
+                    }}
+                  >
+                    {duplicating.has(map.id) ? "Duplicating…" : "Duplicate"}
                   </button>
                   <button
                     aria-label={`Delete ${map.title}`}

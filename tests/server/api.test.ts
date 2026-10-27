@@ -5,6 +5,9 @@ import os from "node:os";
 import path from "node:path";
 import type { Server } from "node:http";
 import fc from "fast-check";
+import { randomUUID } from "node:crypto";
+import type { MapFile, MapNode } from "../../src/shared/schema.js";
+import { MapFileSchema } from "../../src/shared/schema.js";
 import { createApp } from "../../src/server/app.js";
 import { assertDataDir, MapFileStore } from "../../src/server/MapFileStore.js";
 import { textArb } from "../fixtures.js";
@@ -137,4 +140,63 @@ it("rejects invalid titles, mismatched IDs, invalid JSON and unknown API routes"
       (await request(`/api/maps/${summary.id}/title`, "PATCH", { title }))
         .status,
     ).toBe(400);
+});
+it("duplicates a complete tree with fresh IDs and metadata without changing the source", async () => {
+  const { id } = await (await request("/api/maps", "POST", { title: "Original" })).json();
+  let source: MapFile = await (await request(`/api/maps/${id}`)).json();
+  source.root.children = [{
+    id: randomUUID(), text: "Branch", collapsed: true,
+    style: { backgroundColor: "#abcdef", connectorStyle: "dashed" },
+    children: [{ id: randomUUID(), text: "Hidden leaf", collapsed: false, children: [] }],
+  }];
+  source = await (await request(`/api/maps/${id}`, "PUT", source)).json();
+  const bytes = await fs.readFile(path.join(dir, `${id}.json`), "utf8");
+  const started = Date.now();
+  const result = await request(`/api/maps/${id}/duplicate`, "POST");
+  expect(result.status).toBe(201);
+  const summary = await result.json();
+  const copy: MapFile = await (await request(`/api/maps/${summary.id}`)).json();
+  expect(MapFileSchema.parse(copy)).toEqual(copy);
+  expect(copy).toMatchObject({ title: "Original (Copy)", revision: 1, schemaVersion: 1 });
+  expect(copy.id).not.toBe(id);
+  expect(summary).toEqual({ id: copy.id, title: copy.title, updatedAt: copy.updatedAt });
+  expect(Date.parse(copy.createdAt)).toBeGreaterThanOrEqual(started);
+  expect(copy.updatedAt).toBe(copy.createdAt);
+  const ids = new Set<string>();
+  function compare(a: MapNode, b: MapNode) {
+    ids.add(b.id);
+    expect(b.id).not.toBe(a.id);
+    expect({ ...b, id: a.id, children: a.children }).toEqual(a);
+    expect(b.children).toHaveLength(a.children.length);
+    a.children.forEach((child, index) => compare(child, b.children[index]));
+  }
+  compare(source.root, copy.root);
+  expect(ids.size).toBe(3);
+  expect(await fs.readFile(path.join(dir, `${copy.id}.json`), "utf8")).toBe(JSON.stringify(copy, null, 2));
+  copy.root.children[0].text = "Only the copy changes";
+  expect((await request(`/api/maps/${copy.id}`, "PUT", copy)).status).toBe(200);
+  expect(await fs.readFile(path.join(dir, `${id}.json`), "utf8")).toBe(bytes);
+});
+it("duplicates maximum-length titles within the schema limit and preserves the copy suffix", async () => {
+  for (const title of ["x".repeat(100), "x".repeat(92) + "🌿" + "x".repeat(6)]) {
+    const { id } = await (await request("/api/maps", "POST", { title })).json();
+    const result = await request(`/api/maps/${id}/duplicate`, "POST");
+    expect(result.status).toBe(201);
+    const copy = await result.json();
+    expect(copy.title.length).toBeLessThanOrEqual(100);
+    expect(copy.title.endsWith(" (Copy)")).toBe(true);
+    expect(copy.title).not.toMatch(/[\uD800-\uDBFF] \(Copy\)$/);
+  }
+});
+it("rejects duplication of invalid, missing, trashed and corrupt source maps", async () => {
+  expect((await request("/api/maps/invalid/duplicate", "POST")).status).toBe(400);
+  expect((await request(`/api/maps/${randomUUID()}/duplicate`, "POST")).status).toBe(404);
+  const { id } = await (await request("/api/maps", "POST", { title: "Trashed" })).json();
+  await request(`/api/maps/${id}`, "DELETE");
+  expect((await request(`/api/maps/${id}/duplicate`, "POST")).status).toBe(410);
+  const corruptId = randomUUID();
+  await fs.writeFile(path.join(dir, `${corruptId}.json`), "{");
+  const before = (await fs.readdir(dir)).sort();
+  expect((await request(`/api/maps/${corruptId}/duplicate`, "POST")).status).toBe(400);
+  expect((await fs.readdir(dir)).sort()).toEqual(before);
 });

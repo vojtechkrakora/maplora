@@ -204,6 +204,29 @@ export class MapFileStore {
       return saved;
     });
   }
+  async duplicateMap(id: string): Promise<MapFile> {
+    const map = structuredClone(await this.readMap(id));
+    const now = new Date().toISOString();
+    map.id = randomUUID();
+    // Leave room for the suffix without splitting a UTF-16 surrogate pair.
+    const suffix = " (Copy)";
+    map.title =
+      map.title.slice(0, 100 - suffix.length).replace(/[\uD800-\uDBFF]$/, "") +
+      suffix;
+    map.revision = 1;
+    map.createdAt = now;
+    map.updatedAt = now;
+    const nodes = [map.root];
+    while (nodes.length) {
+      const node = nodes.pop()!;
+      node.id = randomUUID();
+      nodes.push(...node.children);
+    }
+    return this.locked(map.id, async () => {
+      await this.atomicWrite(map);
+      return map;
+    });
+  }
   async renameMap(id: string, title: string) {
     TitleSchema.parse(title);
     return this.locked(id, async () => {
