@@ -1,0 +1,156 @@
+import { useEffect, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useMapListStore } from "../stores/mapListStore";
+import { Brand, MapGlyph } from "../components/Brand";
+import { TitleDialog } from "../components/Dialog";
+import type { MapSummary } from "../../shared/schema.js";
+export function MapListPage() {
+  const s = useMapListStore(),
+    navigate = useNavigate(),
+    location = useLocation();
+  const [dialog, setDialog] = useState<"create" | MapSummary | null>(null),
+    [error, setError] = useState<string | null>(location.state?.error ?? null);
+  useEffect(() => {
+    void s.fetchMaps();
+  }, [s.fetchMaps]);
+  return (
+    <div className="library">
+      <header className="app-header">
+        <Brand />
+        <nav>
+          <span className="local-badge">
+            <i />
+            Your private workspace
+          </span>
+          <Link to="/trash" className="quiet-link">
+            Trash <span aria-hidden="true">↗</span>
+          </Link>
+        </nav>
+      </header>
+      <main className="library-main">
+        <div className="eyebrow">A LITTLE ROOM TO THINK</div>
+        <div className="page-heading">
+          <div>
+            <h1>Your mind, mapped.</h1>
+            <p className="subtitle">Give your ideas space to grow.</p>
+          </div>
+          <button className="primary" onClick={() => setDialog("create")}>
+            <span aria-hidden="true">＋</span> New mind map
+          </button>
+        </div>
+        {(error || s.error) && (
+          <div className="error-banner" role="alert">
+            {error || s.error}
+            <button
+              onClick={() => {
+                setError(null);
+                void s.fetchMaps();
+              }}
+            >
+              Retry
+            </button>
+          </div>
+        )}
+        <div className="section-label">
+          <span>
+            YOUR MAPS <span className="count">{s.maps.length}</span>
+          </span>
+          <span>Last edited first</span>
+        </div>
+        {s.loading ? (
+          <div className="empty-state" role="status">
+            Gathering your ideas…
+          </div>
+        ) : !s.maps.length ? (
+          <div className="empty-state">
+            <div className="empty-glyph">
+              <MapGlyph />
+            </div>
+            <h2>Every idea starts somewhere.</h2>
+            <p>Create a mind map and see where your thoughts take you.</p>
+            <button className="primary" onClick={() => setDialog("create")}>
+              Create your first mind map
+            </button>
+          </div>
+        ) : (
+          <div className="map-grid">
+            {s.maps.map((map) => (
+              <article
+                className={`map-card ${map.error ? "corrupt" : ""}`}
+                key={map.id}
+              >
+                <Link className="map-open" to={`/maps/${map.id}`}>
+                  <div className="map-thumbnail">
+                    <MapGlyph />
+                  </div>
+                  <div className="map-info">
+                    <h2>{map.title}</h2>
+                    {map.updatedAt && (
+                      <time dateTime={map.updatedAt}>
+                        {new Date(map.updatedAt).toLocaleString()}
+                      </time>
+                    )}
+                    {map.error && (
+                      <span className="error-text">
+                        ⚠ File could not be read
+                      </span>
+                    )}
+                  </div>
+                </Link>
+                <div className="card-actions">
+                  <button
+                    disabled={map.error}
+                    aria-label={`Rename ${map.title}`}
+                    onClick={() => setDialog(map)}
+                  >
+                    Rename
+                  </button>
+                  <button
+                    aria-label={`Delete ${map.title}`}
+                    onClick={async () => {
+                      if (
+                        window.confirm(
+                          `Move “${map.title}” to Trash? You can restore it later.`,
+                        )
+                      )
+                        try {
+                          await s.deleteMap(map.id);
+                        } catch (e) {
+                          setError((e as Error).message);
+                        }
+                    }}
+                  >
+                    Trash
+                  </button>
+                </div>
+              </article>
+            ))}
+            <button
+              className="new-map-card"
+              onClick={() => setDialog("create")}
+            >
+              <span aria-hidden="true">＋</span>Make room for another idea
+            </button>
+          </div>
+        )}
+      </main>
+      <footer className="library-footer">
+        <span>Made for wandering minds.</span>
+        <span>Stored on your server. Always yours.</span>
+      </footer>
+      {dialog && (
+        <TitleDialog
+          mode={dialog === "create" ? "Create" : "Rename"}
+          initial={dialog === "create" ? "" : dialog.title}
+          onClose={() => setDialog(null)}
+          onSubmit={async (title) => {
+            if (dialog === "create")
+              navigate(`/maps/${await s.createMap(title)}`);
+            else await s.renameMap(dialog.id, title);
+            setDialog(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}

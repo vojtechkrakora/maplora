@@ -1,0 +1,296 @@
+import { create } from "zustand";
+import * as api from "../api";
+import { newNodeId } from "../id";
+import {
+  NodeTextSchema,
+  type MapFile,
+  type MapNode,
+} from "../../shared/schema.js";
+import { findNode, findParent } from "../../shared/tree.js";
+export type NodeOperation =
+  | { kind: "add"; parentId: string; node: MapNode; afterId?: string }
+  | { kind: "edit"; id: string; text: string }
+  | { kind: "delete"; id: string }
+  | { kind: "collapse"; id: string; collapsed: boolean };
+export function applyOperation(source: MapFile, op: NodeOperation): MapFile {
+  const map = structuredClone(source);
+  if (op.kind === "add") {
+    const parent = findNode(map.root, op.parentId);
+    if (!parent) throw new Error("The parent node no longer exists.");
+    if (!findNode(map.root, op.node.id)) {
+      const index = op.afterId
+        ? parent.children.findIndex((n) => n.id === op.afterId) + 1
+        : parent.children.length;
+      parent.children.splice(index, 0, structuredClone(op.node));
+      parent.collapsed = false;
+    }
+  } else if (op.kind === "delete") {
+    const parent = findParent(map.root, op.id);
+    if (parent) parent.children = parent.children.filter((n) => n.id !== op.id);
+  } else {
+    const node = findNode(map.root, op.id);
+    if (!node) throw new Error("The node no longer exists.");
+    if (op.kind === "edit") {
+      NodeTextSchema.parse(op.text);
+      node.text = op.text;
+    } else if (node !== map.root && node.children.length)
+      node.collapsed = op.collapsed;
+  }
+  return map;
+}
+interface Draft {
+  id: string;
+  parentId: string;
+  afterId?: string;
+}
+export interface EditorState {
+  map: MapFile | null;
+  selectedNodeId: string | null;
+  editingNodeId: string | null;
+  draft: Draft | null;
+  saving: "idle" | "saving" | "error";
+  error: string | null;
+  notice: string | null;
+  loading: boolean;
+  gone: boolean;
+  undoStack: MapFile[];
+  redoStack: MapFile[];
+  loadMap(id: string): Promise<void>;
+  saveMap(): Promise<boolean>;
+  select(id: string | null): void;
+  beginEdit(id: string): void;
+  cancelEdit(): void;
+  addNode(parentId: string, afterId?: string): void;
+  editNodeText(id: string, text: string): Promise<boolean>;
+  deleteNode(id: string): Promise<boolean>;
+  toggleCollapse(id: string): Promise<boolean>;
+}
+export function createEditorStore(
+  service: Pick<typeof api, "fetchMap" | "saveMap"> = api,
+) {
+  return create<EditorState>((set, get) => {
+    let base: MapFile | null = null,
+      generation = 0,
+      runningGeneration: number | null = null;
+    let failed: NodeOperation | null = null;
+    type Pending = {
+      operation: NodeOperation;
+      resolve(success: boolean): void;
+    };
+    const pending: Pending[] = [];
+    function project() {
+      let map = base;
+      if (map)
+        for (const p of pending) {
+          try {
+            map = applyOperation(map, p.operation);
+          } catch {
+            /* A dependent edit may become invalid after rollback. */
+          }
+        }
+      set({ map });
+    }
+    async function pump() {
+      if (runningGeneration === generation || !base) return;
+      const currentGeneration = generation;
+      runningGeneration = currentGeneration;
+      while (pending.length && currentGeneration === generation) {
+        const item = pending[0];
+        set({ saving: "saving" });
+        try {
+          let candidate = applyOperation(base!, item.operation);
+          let saved: MapFile;
+          try {
+            saved = await service.saveMap(candidate);
+          } catch (error) {
+            if (!(error instanceof api.ApiError) || error.status !== 409)
+              throw error;
+            if (currentGeneration !== generation) break;
+            const latest = await service.fetchMap(candidate.id);
+            if (currentGeneration !== generation) break;
+            base = latest;
+            candidate = applyOperation(latest, item.operation);
+            saved = await service.saveMap(candidate);
+            if (currentGeneration !== generation) break;
+            set({
+              notice:
+                "A newer revision was found. Your change was applied to it.",
+            });
+          }
+          if (currentGeneration !== generation) break;
+          base = saved;
+          pending.shift();
+          project();
+          item.resolve(true);
+        } catch (error) {
+          if (currentGeneration !== generation) break;
+          pending.shift();
+          failed = item.operation;
+          project();
+          set({
+            error: `Change could not be saved: ${(error as Error).message}`,
+            saving: "error",
+            gone:
+              error instanceof api.ApiError &&
+              [404, 410].includes(error.status),
+          });
+          item.resolve(false);
+        }
+      }
+      if (currentGeneration === generation) {
+        runningGeneration = null;
+        if (!get().error) set({ saving: "idle" });
+      }
+    }
+    function enqueue(operation: NodeOperation): Promise<boolean> {
+      const current = get().map;
+      if (!current) return Promise.resolve(false);
+      // Validate before changing state; retain bounded snapshots for post-MVP history.
+      applyOperation(current, operation);
+      set((s) => ({
+        undoStack: [...s.undoStack, structuredClone(current)].slice(-50),
+        redoStack: [],
+        error: null,
+        notice: null,
+        saving: "saving",
+      }));
+      failed = null;
+      return new Promise((resolve) => {
+        pending.push({ operation, resolve });
+        project();
+        void pump();
+      });
+    }
+    return {
+      map: null,
+      selectedNodeId: null,
+      editingNodeId: null,
+      draft: null,
+      saving: "idle",
+      error: null,
+      notice: null,
+      loading: false,
+      gone: false,
+      undoStack: [],
+      redoStack: [],
+      async loadMap(id) {
+        const token = ++generation;
+        for (const p of pending.splice(0)) p.resolve(false);
+        base = null;
+        failed = null;
+        runningGeneration = null;
+        set({
+          map: null,
+          loading: true,
+          selectedNodeId: null,
+          editingNodeId: null,
+          draft: null,
+          error: null,
+          notice: null,
+          gone: false,
+          saving: "idle",
+          undoStack: [],
+          redoStack: [],
+        });
+        try {
+          const map = await service.fetchMap(id);
+          if (token === generation) {
+            base = map;
+            set({ map, selectedNodeId: map.root.id });
+          }
+        } catch (error) {
+          if (token === generation)
+            set({
+              error: `Map could not be read: ${(error as Error).message}`,
+            });
+        } finally {
+          if (token === generation) set({ loading: false });
+        }
+      },
+      async saveMap() {
+        if (failed) {
+          const op = failed;
+          try {
+            return await enqueue(op);
+          } catch (error) {
+            set({
+              error: `Change could not be saved: ${(error as Error).message}`,
+              saving: "error",
+            });
+            return false;
+          }
+        }
+        return true;
+      },
+      select(id) {
+        set({ selectedNodeId: id });
+      },
+      beginEdit(id) {
+        if (get().draft) return;
+        set({ editingNodeId: id, selectedNodeId: id });
+      },
+      cancelEdit() {
+        const draft = get().draft;
+        set({
+          editingNodeId: null,
+          draft: null,
+          ...(draft ? { selectedNodeId: draft.parentId } : {}),
+        });
+      },
+      addNode(parentId, afterId) {
+        if (
+          get().draft ||
+          get().editingNodeId ||
+          !get().map ||
+          !findNode(get().map!.root, parentId)
+        )
+          return;
+        const id = newNodeId();
+        set({
+          draft: { id, parentId, afterId },
+          editingNodeId: id,
+          selectedNodeId: id,
+        });
+      },
+      async editNodeText(id, text) {
+        const draft = get().draft;
+        if (draft?.id === id && !text.trim()) {
+          get().cancelEdit();
+          return true;
+        }
+        NodeTextSchema.parse(text);
+        if (draft?.id === id) {
+          set({ draft: null, editingNodeId: null });
+          return enqueue({
+            kind: "add",
+            parentId: draft.parentId,
+            afterId: draft.afterId,
+            node: { id, text, collapsed: false, children: [] },
+          });
+        }
+        set({ editingNodeId: null });
+        if (findNode(get().map!.root, id)?.text === text) return true;
+        return enqueue({ kind: "edit", id, text });
+      },
+      async deleteNode(id) {
+        const map = get().map;
+        if (!map || id === map.root.id) return false;
+        if (get().draft?.id === id) {
+          get().cancelEdit();
+          return true;
+        }
+        const parent = findParent(map.root, id);
+        if (!parent) return false;
+        set({ selectedNodeId: parent.id });
+        return enqueue({ kind: "delete", id });
+      },
+      async toggleCollapse(id) {
+        const map = get().map,
+          node = map && findNode(map.root, id);
+        if (!node || id === map!.root.id || !node.children.length) return false;
+        return enqueue({ kind: "collapse", id, collapsed: !node.collapsed });
+      },
+    };
+  });
+}
+export const useEditorStore = createEditorStore();

@@ -10,45 +10,45 @@ MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Po
 
 ## Tasks
 
-- [ ] 1. Scaffold project structure, toolchain, and CI baseline
-  - [ ] 1.1 Initialize monorepo with `package.json`, TypeScript config, Vite config, and Tailwind CSS v4
+- [x] 1. Scaffold project structure, toolchain, and CI baseline
+  - [x] 1.1 Initialize monorepo with `package.json`, TypeScript config, Vite config, and Tailwind CSS v4
     - Create root `package.json` with workspaces for `src/client` and `src/server`
     - Add `tsconfig.json` (base), `tsconfig.client.json` (extends base, DOM lib), `tsconfig.server.json` (extends base, NodeNext module)
     - Configure Vite with `react-ts` template, output to `dist/public`
     - Configure Tailwind CSS v4 using `@tailwindcss/vite` plugin
     - _Requirements: 23.2_
 
-  - [ ] 1.2 Set up Vitest, fast-check, React Testing Library, and MSW
+  - [x] 1.2 Set up Vitest, fast-check, React Testing Library, and MSW
     - Install `vitest`, `@vitest/coverage-v8`, `fast-check`, `@testing-library/react`, `@testing-library/user-event`, `msw`
     - Create `vitest.config.ts` with separate projects for client (jsdom) and server (node)
     - Add `npm test` script that runs `vitest --run`
     - _Requirements: 23.2_
 
-  - [ ] 1.3 Scaffold Hono server entry point with static file serving and startup data-directory validation
+  - [x] 1.3 Scaffold Hono server entry point with static file serving and startup data-directory validation
     - Create `src/server/index.ts`: starts Hono, serves `dist/public` as static files, falls back to `index.html` for non-API routes
     - Implement `assertDataDir()`: checks `DATA_DIR` env var (default `/data`), verifies read/write access, creates `_trash` subdirectory; calls `process.exit(1)` on failure
     - Add `npm run build` script: runs `vite build` then `tsc -p tsconfig.server.json`
     - Add `npm run dev` script: runs `vite` and `tsx watch src/server/index.ts` concurrently
     - _Requirements: 23.1, 23.4, 23.5, 24.6_
 
-  - [ ] 1.4 Add Dockerfile and docker-compose.yml
+  - [x] 1.4 Add Dockerfile and docker-compose.yml
     - Multi-stage Dockerfile: `builder` stage (node:22-alpine, `npm ci`, `npm run build`), `runtime` stage (copies `dist/` and `node_modules`)
     - `docker-compose.yml` with `HOST_PORT` (default 3000) and `DATA_PATH` (default `./data`) env vars, bind mount to `/data`
     - _Requirements: 23.1, 23.2, 23.3, 23.4, 23.5, 23.6, 24.1_
 
-- [ ] 2. Map File schema, validation, and file I/O layer
-  - [ ] 2.1 Define `MapFile` and `MapNode` Zod schemas and TypeScript types
+- [x] 2. Map File schema, validation, and file I/O layer
+  - [x] 2.1 Define `MapFile` and `MapNode` Zod schemas and TypeScript types
     - Create `src/shared/schema.ts` with `MapFileSchema`, `MapNodeSchema`, `NodeStyleSchema`
     - Export inferred TypeScript types: `MapFile`, `MapNode`, `NodeStyle`, `MapSummary`
     - Schema fields per design: `schemaVersion: 1`, `revision ≥ 1`, UUID v4 `id`, `title` (1–100 chars), `createdAt`/`updatedAt` (ISO 8601), `root: MapNode`; `MapNode`: UUID v4 `id`, `text` (1–200 chars), `collapsed: boolean`, optional `style`, `children: MapNode[]`
     - _Requirements: 21.1, 21.2, 21.9_
 
-  - [ ]* 2.2 Write property test for MapFile serialization round trip
+  - [x]* 2.2 Write property test for MapFile serialization round trip
     - **Property 17: Map File serialization round trip**
     - **Validates: Requirements 21.9**
     - Build a `fc.Arbitrary<MapFile>` using fast-check; assert that `MapFileSchema.parse(JSON.parse(JSON.stringify(map)))` deep-equals the original
 
-  - [ ] 2.3 Implement `MapFileStore` with atomic writes, write-locking, and revision tracking
+  - [x] 2.3 Implement `MapFileStore` with atomic writes, write-locking, and revision tracking
     - Create `src/server/MapFileStore.ts`
     - `listMaps()`: reads `*.json` in `dataDir` (excludes `_trash`), returns `MapSummary[]` sorted by `updatedAt` descending; on parse failure returns fallback entry with filename as title, no timestamp, error flag
     - `readMap(mapId)`: reads and Zod-validates the file; throws on missing or invalid
@@ -61,21 +61,21 @@ MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Po
     - `emptyTrash()`: deletes all `_trash/*.json`
     - _Requirements: 22.1, 22.2, 22.3, 22.4, 22.5, 22.6, 22.7, 21.3, 24.1, 24.5_
 
-  - [ ]* 2.4 Write property tests for revision and stale-write detection
+  - [x]* 2.4 Write property tests for revision and stale-write detection
     - **Property 18: Revision increments monotonically on every write**
     - **Validates: Requirements 22.7**
     - **Property 19: Stale-write detection rejects outdated saves**
     - **Validates: Requirements 22.8**
     - Use a temp directory per test; assert revision after N sequential writes equals N; assert a save with `revision < currentRevision` returns a 409-equivalent error without modifying the file
 
-  - [ ]* 2.5 Write unit tests for `MapFileStore`
+  - [x]* 2.5 Write unit tests for `MapFileStore`
     - Test `listMaps()` with 0, 1, N maps; verify sort order; verify corrupt-file fallback entry
     - Test `writeMap()` verifies temp file is cleaned up after failure
     - Test `trashMap()` / `restoreMap()` / `emptyTrash()` file movements
     - _Requirements: 1.3, 1.4, 1.6, 6.2, 6.5_
 
-- [ ] 3. REST API endpoints
-  - [ ] 3.1 Implement map CRUD API endpoints (`GET`, `POST`, `GET /:id`, `PUT /:id`, `PATCH /:id/title`, `DELETE /:id`)
+- [x] 3. REST API endpoints
+  - [x] 3.1 Implement map CRUD API endpoints (`GET`, `POST`, `GET /:id`, `PUT /:id`, `PATCH /:id/title`, `DELETE /:id`)
     - `GET /api/maps`: calls `listMaps()`, returns `MapSummary[]`
     - `POST /api/maps`: validates title (1–100 chars, non-whitespace), creates root node with UUID v4, writes new `MapFile` with `revision=1`, returns `MapSummary`
     - `GET /api/maps/:mapId`: calls `readMap()`, returns full `MapFile`
@@ -85,31 +85,31 @@ MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Po
     - Attach `MapFileStore` instance to Hono app context via middleware
     - _Requirements: 1.1, 1.3, 1.5, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 4.1, 4.2, 4.3, 4.4, 4.5, 6.1, 6.2, 21.4, 21.5, 22.8_
 
-  - [ ] 3.2 Implement trash API endpoints (`GET /api/trash`, `POST /api/trash/:mapId/restore`, `DELETE /api/trash`)
+  - [x] 3.2 Implement trash API endpoints (`GET /api/trash`, `POST /api/trash/:mapId/restore`, `DELETE /api/trash`)
     - `GET /api/trash`: calls `listTrash()`, returns `MapSummary[]`
     - `POST /api/trash/:mapId/restore`: calls `restoreMap()`, returns 200
     - `DELETE /api/trash`: calls `emptyTrash()`, returns 204
     - _Requirements: 6.4, 6.5, 6.6_
 
-  - [ ]* 3.3 Write integration tests for all API endpoints
+  - [x]* 3.3 Write integration tests for all API endpoints
     - Use a real temp directory per test suite; start Hono app in test; use `fetch` against the live port
     - Cover: list with 0/1/N maps, create + read back, put with valid revision, put with stale revision (expect 409), rename, delete (verify trash), restore, empty trash
     - _Requirements: 1.1, 2.2, 4.2, 6.2, 6.5, 22.7, 22.8_
 
-- [ ] 4. Frontend routing, shell, and API client
-  - [ ] 4.1 Set up React Router v6 with routes for `/`, `/maps/:mapId`, and `/trash`
+- [x] 4. Frontend routing, shell, and API client
+  - [x] 4.1 Set up React Router v6 with routes for `/`, `/maps/:mapId`, and `/trash`
     - Create `src/client/main.tsx` with `BrowserRouter`
     - Add stub page components: `MapListPage`, `EditorPage`, `TrashPage`
     - _Requirements: 3.1_
 
-  - [ ] 4.2 Implement typed API client module
+  - [x] 4.2 Implement typed API client module
     - Create `src/client/api.ts` with functions matching all server endpoints
     - Functions: `fetchMaps()`, `createMap(title)`, `fetchMap(mapId)`, `saveMap(map)`, `renameMap(mapId, title)`, `deleteMap(mapId)`, `fetchTrash()`, `restoreMap(mapId)`, `emptyTrash()`
     - Each function throws a typed error object `{ status, code, message }` on non-2xx
     - _Requirements: 1.1, 2.2, 4.2, 6.2_
 
-- [ ] 5. Map list screen (Requirement 1, 2, 4, 6)
-  - [ ] 5.1 Implement `MapListPage` with map cards, empty state, and create action
+- [x] 5. Map list screen (Requirement 1, 2, 4, 6)
+  - [x] 5.1 Implement `MapListPage` with map cards, empty state, and create action
     - `MapListPage` fetches maps on mount via `mapListStore`; renders `MapCard[]` or `EmptyState`
     - `MapCard`: displays title and formatted `updatedAt` (locale date/time); shows error indicator for corrupt entries
     - Empty state: message + "Create your first mind map" button
@@ -117,31 +117,31 @@ MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Po
     - Loading and error states
     - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 2.1, 2.5, 2.6, 2.7_
 
-  - [ ] 5.2 Implement rename and delete actions on `MapCard`
+  - [x] 5.2 Implement rename and delete actions on `MapCard`
     - Rename: inline dialog pre-populated with current title; validates 1–100 chars; on success updates card immediately
     - Delete: confirmation dialog showing map name; on confirm calls `deleteMap()`; removes card from list immediately; shows error toast on failure
     - _Requirements: 4.1, 4.2, 4.4, 4.5, 4.6, 6.1, 6.2, 6.3, 6.7, 6.8_
 
-  - [ ] 5.3 Implement `mapListStore` Zustand store
+  - [x] 5.3 Implement `mapListStore` Zustand store
     - State: `maps: MapSummary[]`, `loading: boolean`, `error: string | null`
     - Actions: `fetchMaps()`, `createMap(title)`, `deleteMap(mapId)`, `renameMap(mapId, title)`
     - _Requirements: 1.1, 2.2, 4.2, 6.2_
 
-  - [ ]* 5.4 Write component tests for `MapListPage`
+  - [x]* 5.4 Write component tests for `MapListPage`
     - Use MSW to mock API; test renders card list, empty state, create dialog validation, rename dialog validation, delete confirmation
     - _Requirements: 1.1, 1.2, 2.6, 4.4, 6.7_
 
-- [ ] 6. Checkpoint — MVP map management baseline
+- [x] 6. Checkpoint — MVP map management baseline
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 7. Editor foundation: load map and canvas scaffold
-  - [ ] 7.1 Implement `editorStore` Zustand store (load and save only)
+- [x] 7. Editor foundation: load map and canvas scaffold
+  - [x] 7.1 Implement `editorStore` Zustand store (load and save only)
     - State: `map: MapFile | null`, `selectedNodeId: string | null`, `saving: 'idle' | 'saving' | 'error'`
     - Actions: `loadMap(mapId)`, `saveMap()`
     - `saveMap()` sends `PUT /api/maps/:mapId`; handles 409 by re-fetching and retrying once
     - _Requirements: 3.1, 3.3, 3.5_
 
-  - [ ] 7.2 Implement `EditorPage` with `MindMapCanvas` using React Flow
+  - [x] 7.2 Implement `EditorPage` with `MindMapCanvas` using React Flow
     - `EditorPage` calls `editorStore.loadMap()` on mount; shows loading spinner and error state
     - `MindMapCanvas` wraps `<ReactFlow>` with `minZoom={0.1}` and `maxZoom={2}`, `fitView` on initial load
     - Register custom `MindMapNode` component and `MindMapEdge` component (static rendering, no editing yet)
@@ -150,12 +150,12 @@ MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Po
     - `EditorToolbar`: shows map title; zoom in/out buttons; fit-to-screen button
     - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 13.3, 13.4, 13.5, 13.6_
 
-  - [ ]* 7.3 Write component tests for `EditorPage` load and error states
+  - [x]* 7.3 Write component tests for `EditorPage` load and error states
     - Mock API with MSW; assert nodes render after load; assert error navigates back to list
     - _Requirements: 3.5_
 
-- [ ] 8. Bilateral layout algorithm
-  - [ ] 8.1 Implement bilateral Reingold-Tilford layout using d3-flextree
+- [x] 8. Bilateral layout algorithm
+  - [x] 8.1 Implement bilateral Reingold-Tilford layout using d3-flextree
     - Create `src/client/layout.ts`
     - `computeLayout(map: MapFile, nodeSizes: Map<string, {width: number, height: number}>): Map<string, {x: number, y: number}>`
     - Step 1: split root children alternately right/left (index 0 → right, 1 → left, …)
@@ -165,33 +165,33 @@ MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Po
     - Collapsed nodes contribute zero size; their children are excluded from layout
     - _Requirements: 14.1, 14.2, 14.3, 14.4_
 
-  - [ ]* 8.2 Write property tests for layout algorithm
+  - [x]* 8.2 Write property tests for layout algorithm
     - **Property 15: Bilateral split balance invariant**
     - **Validates: Requirements 14.2**
     - **Property 16: Layout produces no overlapping bounding boxes**
     - **Validates: Requirements 14.3**
     - Use fast-check to generate arbitrary `MapFile` trees; assert |left_count − right_count| ≤ 1; assert no pair of bounding boxes overlaps after applying the 8px gap
 
-  - [ ] 8.3 Wire layout into `MindMapCanvas` with CSS transition animation
+  - [x] 8.3 Wire layout into `MindMapCanvas` with CSS transition animation
     - In `MindMapCanvas`, measure each rendered node's bounding box via a hidden measurement `<div>`; cache measurements; invalidate on text change
     - Call `computeLayout()` in a `useMemo` keyed on `map` and measurement cache
     - Pass computed positions as React Flow node positions
     - Apply `transition: transform 200ms ease-in-out` on node wrappers for animation
     - _Requirements: 14.1, 14.5_
 
-  - [ ]* 8.4 Write unit tests for layout with edge cases
+  - [x]* 8.4 Write unit tests for layout with edge cases
     - Test 0, 1, 2, 3, 4, 5 root children; test single-node map; test deep unbalanced tree; test all nodes collapsed
     - _Requirements: 14.2, 14.3_
 
-- [ ] 9. Node editing — add, edit, and delete
-  - [ ] 9.1 Add node mutation actions to `editorStore` and wire to canvas
+- [x] 9. Node editing — add, edit, and delete
+  - [x] 9.1 Add node mutation actions to `editorStore` and wire to canvas
     - Add to `editorStore`: `addNode(parentId)`, `editNodeText(nodeId, text)`, `deleteNode(nodeId)`, `toggleCollapse(nodeId)`
     - Each action: pushes snapshot to `undoStack` (cap 50), mutates `map`, calls `saveMap()`
     - `addNode`: assigns new UUID v4, creates node with `collapsed: false`, inserts as last child
     - `deleteNode`: removes node and all descendants from tree; root cannot be deleted
     - _Requirements: 7.2, 7.3, 7.4, 7.5, 7.6, 9.2, 9.3, 12.5_
 
-  - [ ] 9.2 Implement inline node editing UI in `MindMapNode`
+  - [x] 9.2 Implement inline node editing UI in `MindMapNode`
     - Double-click or F2 → replace text label with `<input>` in edit state
     - Enter or blur → `editNodeText()`; validate non-empty, non-whitespace (show inline error if invalid; do not dismiss edit)
     - Escape → revert to original text, exit edit state
@@ -199,7 +199,7 @@ MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Po
     - `editorStore.editNodeText` rejects empty/whitespace-only text and does not save
     - _Requirements: 7.1, 7.5, 7.6, 8.1, 8.2, 8.3, 8.4, 8.5, 8.6, 8.7_
 
-  - [ ] 9.3 Implement delete node UI with confirmation for non-leaf nodes
+  - [x] 9.3 Implement delete node UI with confirmation for non-leaf nodes
     - Add delete button / context menu item on `MindMapNode`
     - Leaf nodes: delete immediately on confirm, no prompt
     - Non-root nodes with children: show confirmation dialog with node label and descendant count; on confirm call `deleteNode()`; on cancel take no action
@@ -207,14 +207,14 @@ MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Po
     - On server persistence failure: show error toast, restore deleted node and descendants
     - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5_
 
-  - [ ] 9.4 Implement collapse/expand toggle in `MindMapNode`
+  - [x] 9.4 Implement collapse/expand toggle in `MindMapNode`
     - Show collapse control on non-root nodes with children that are expanded
     - Show expand control on collapsed nodes; no control on root or leaf nodes
     - Toggle calls `toggleCollapse(nodeId)`, persists to Map File
     - Expand reveals direct children in their previously persisted collapsed/expanded state
     - _Requirements: 12.1, 12.2, 12.3, 12.4, 12.5, 12.6_
 
-  - [ ]* 9.5 Write property tests for node operations
+  - [x]* 9.5 Write property tests for node operations
     - **Property 9: Adding a child node assigns a unique Node ID**
     - **Validates: Requirements 7.2**
     - **Property 10: Node text edit round trip**
@@ -226,12 +226,12 @@ MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Po
     - **Property 13: Collapse state persists across save and reload**
     - **Validates: Requirements 12.5**
 
-  - [ ]* 9.6 Write unit tests for `editorStore` node mutations
+  - [x]* 9.6 Write unit tests for `editorStore` node mutations
     - Test `addNode` appends child with unique ID; test `deleteNode` removes all descendants; test `editNodeText` rejects whitespace; test `toggleCollapse` persists state; test undo stack grows and is capped at 50
     - _Requirements: 7.2, 8.5, 9.2, 12.5, 25.4_
 
-- [ ] 10. Keyboard shortcuts
-  - [ ] 10.1 Implement keyboard shortcut handler in `EditorPage`
+- [x] 10. Keyboard shortcuts
+  - [x] 10.1 Implement keyboard shortcut handler in `EditorPage`
     - Add `keydown` listener on the canvas container; fire only when no text input is focused
     - `Tab` / `Insert`: `addNode(selectedNodeId)`
     - `Enter`: add sibling after selected node (no-op on root)
@@ -245,38 +245,38 @@ MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Po
     - `?`: open keyboard shortcut reference panel
     - _Requirements: 16.1, 16.2, 16.3_
 
-  - [ ]* 10.2 Write component tests for keyboard shortcuts
+  - [x]* 10.2 Write component tests for keyboard shortcuts
     - Use `@testing-library/user-event`; assert each shortcut triggers the expected store action; assert shortcuts do not fire when input is focused
     - _Requirements: 16.1, 16.3_
 
-- [ ] 11. Checkpoint — MVP editor interactions complete
+- [x] 11. Checkpoint — MVP editor interactions complete
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 12. Trash screen
-  - [ ] 12.1 Implement `TrashPage` with restore and empty-trash actions
+- [x] 12. Trash screen
+  - [x] 12.1 Implement `TrashPage` with restore and empty-trash actions
     - Fetches `GET /api/trash` on mount; renders `TrashCard[]` (title, restore button) or empty state
     - Restore: calls `restoreMap(mapId)`, removes card from list, shows success feedback
     - "Empty Trash" button: confirmation dialog; calls `emptyTrash()`; clears list
     - Link from `MapListPage` header to `/trash`
     - _Requirements: 6.4, 6.5, 6.6, 6.9, 6.10, 6.11_
 
-  - [ ]* 12.2 Write component tests for `TrashPage`
+  - [x]* 12.2 Write component tests for `TrashPage`
     - Mock API; test renders trash cards and empty state; test restore removes card; test empty-trash confirmation
     - _Requirements: 6.4, 6.5, 6.6_
 
-- [ ] 13. Schema versioning and migration infrastructure
-  - [ ] 13.1 Implement schema version validation and migration pipeline in `MapFileStore`
+- [x] 13. Schema versioning and migration infrastructure
+  - [x] 13.1 Implement schema version validation and migration pipeline in `MapFileStore`
     - On `readMap()`: after JSON parse, check `schemaVersion`; if version > server's max supported → reject with error (log version and max); if version < minimum migration version → reject with error (log "too old")
     - If version < current and ≥ minimum → run migration chain; overwrite file with migrated content
     - Migration registry: `migrations: Record<number, (old: unknown) => unknown>`; currently only version 1 → 1 (identity, no migration needed yet, but registry is in place)
     - All reads return Zod-validated `MapFile`; any validation failure logged and returned as error
     - _Requirements: 21.4, 21.5, 21.6, 21.7, 21.8_
 
-  - [ ]* 13.2 Write unit tests for schema versioning
+  - [x]* 13.2 Write unit tests for schema versioning
     - Test version-too-high rejection; test version-too-old rejection; test identity migration for v1 → v1; test that corrupt-field file is rejected with field-level error message
     - _Requirements: 21.4, 21.5, 21.6_
 
-- [ ] 14. Checkpoint — MVP complete, all tests pass
+- [x] 14. Checkpoint — MVP complete, all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 15. Duplicate map (Post-MVP)
@@ -377,8 +377,22 @@ MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Po
     - Test 50-op cap (oldest dropped); test undo no-op when stack empty; test redo no-op when stack empty; test redo stack cleared on new operation
     - _Requirements: 25.4, 25.7, 25.8_
 
-- [ ] 23. Final checkpoint — all tests pass, Docker build verified
+- [x] 23. Final checkpoint — all tests pass, Docker build verified
   - Ensure all tests pass, ask the user if questions arise.
+
+---
+
+## MVP Implementation Notes
+
+Verification completed on 2026-10-27: 60 Vitest tests passed across 9 files, with 100 runs per property test; client/server production build and clean dependency installation passed. Browser checks passed on localhost and plain HTTP over the LAN. A 500-node map rendered in 619ms with 499 connectors and no measured label overlaps. Docker Compose built and ran the final image, served static assets and SPA routes, persisted JSON on the host, and preserved identical map data across restart and container recreation. Trash and restoration passed in the container. The production Compose service was left running on port 3000.
+
+- Tasks 1–14 and their optional MVP test tasks are implemented. Post-MVP feature tasks 15–22 remain deferred. Task 23 is used only for final deployment verification.
+- The snapshot stacks requested by task 9.1 are bounded at 50; undo/redo actions, controls and shortcuts remain deferred to task 22, including the undo/redo entries in Requirement 16.1.
+- Collapsed node labels retain their measured dimensions; only their descendants are excluded from layout. Giving the visible label a zero-size box would violate Requirement 14.3's non-overlap constraint.
+- Saves use a serialized operation queue, reapply the pending operation to the latest map on a 409, and retry once. Failed operations roll back and can be retried from the error banner. Late responses from previously opened maps are ignored.
+- New nodes stay as unsaved drafts until confirmed. UUID v4 creation also supports plain HTTP LAN deployments through Web Crypto's random-value API.
+- Schema version 1 is the sole supported format; the migration registry is present for future version increments.
+- `npm run verify:compose` builds and exercises an isolated single-container deployment, including bind-mounted file contents, static assets, restart and recreation. See README.md for exact run and backup instructions and known limitations.
 
 ---
 

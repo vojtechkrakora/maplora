@@ -1,0 +1,16 @@
+services:
+  maplora:
+    image: maplora
+    build: .
+    ports:
+      - "${HOST_PORT:-3000}:3000"
+    volumes:
+      - "${DATA_PATH:-./data}:/data"
+    environment:
+      DATA_DIR: /data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/maps').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 5s

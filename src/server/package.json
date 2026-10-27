@@ -1,0 +1,5 @@
+{
+  "name": "@maplora/server",
+  "private": true,
+  "type": "module"
+}

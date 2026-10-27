@@ -1,15 +1,9 @@
 # Product
 
-**Maplora** — a map/location-based application (details TBD as the project is bootstrapped).
+Maplora is a self-hosted, single-user hierarchical mind-map editor for organizing thoughts, planning and brainstorming.
 
-## Purpose
+The browser renders a tree with one central root, branches on both sides, inline node editing, keyboard navigation, collapse/expand and pan/zoom. Map management includes creation, renaming, trash and restoration. Changes save automatically as versioned JSON files on the host filesystem.
 
-> TODO: Describe what Maplora does, who it's for, and what problem it solves.
+The MVP has no database, accounts, authentication or external services. Deployment is one Docker Compose service. Data remains portable by copying the complete data directory, including trash.
 
-## Key Concepts
-
-> TODO: List the core domain concepts (e.g. maps, routes, points of interest, users, etc.)
-
-## Status
-
-Early-stage / greenfield. No source code exists yet.
+The authoritative scope is `.kiro/specs/maplora/requirements.md`, with architecture in `design.md` and implementation progress in `tasks.md`. Duplication, rearranging/reparenting, custom styling, manual theme switching, import/export and undo/redo remain post-MVP.
