@@ -1,9 +1,13 @@
 import type { CSSProperties } from "react";
 import type { NodeStyle } from "../shared/schema.js";
 
-export function nodeAppearance(style?: NodeStyle): CSSProperties {
+export function defaultNodeBackground(depth: number): string {
+  return `var(--node-bg-depth-${depth % 6})`;
+}
+
+export function nodeAppearance(style?: NodeStyle, depth = 0): CSSProperties {
   return {
-    backgroundColor: style?.backgroundColor,
+    backgroundColor: style?.backgroundColor ?? defaultNodeBackground(depth),
     color: style?.textColor,
     borderColor: style?.borderColor,
   };

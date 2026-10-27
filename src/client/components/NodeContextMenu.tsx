@@ -1,6 +1,10 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type { MapNode, NodeStyle } from "../../shared/schema.js";
-import { connectorAppearance, nodeAppearance } from "../nodeStyle";
+import {
+  connectorAppearance,
+  defaultNodeBackground,
+  nodeAppearance,
+} from "../nodeStyle";
 import { useEditorStore } from "../stores/editorStore";
 import { useThemeStore } from "../stores/themeStore";
 
@@ -64,10 +68,12 @@ function ColorField({
 export function NodeContextMenu({
   node,
   root,
+  depth,
   onClose,
 }: {
   node: MapNode;
   root: boolean;
+  depth: number;
   onClose(): void;
 }) {
   const updateNodeStyle = useEditorStore((state) => state.updateNodeStyle);
@@ -135,13 +141,13 @@ export function NodeContextMenu({
           <ColorField
             label="Background color"
             value={style.backgroundColor}
-            fallback={root ? "var(--accent)" : "var(--node)"}
+            fallback={defaultNodeBackground(depth)}
             onChange={(backgroundColor) => change({ backgroundColor })}
           />
           <ColorField
             label="Text color"
             value={style.textColor}
-            fallback={root ? "white" : "var(--text)"}
+            fallback="var(--text)"
             onChange={(textColor) => change({ textColor })}
           />
           <h3 className="connector-heading">Connectors</h3>
@@ -202,7 +208,7 @@ export function NodeContextMenu({
           <div className="style-preview" aria-label="Style preview">
             <div
               className={`mind-node ${root ? "root-node" : ""}`}
-              style={nodeAppearance(style)}
+              style={nodeAppearance(style, depth)}
             >
               Your idea
             </div>

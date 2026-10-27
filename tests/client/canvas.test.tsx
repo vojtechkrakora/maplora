@@ -5,6 +5,7 @@ import { MindMapCanvas } from "../../src/client/components/MindMapCanvas";
 import { useEditorStore } from "../../src/client/stores/editorStore";
 import { fixture } from "../fixtures";
 import { useThemeStore } from "../../src/client/stores/themeStore";
+import { applyOperation } from "../../src/client/stores/editorStore";
 const { flowProps, methods } = vi.hoisted(() => ({
   flowProps: { current: null as any },
   methods: {
@@ -105,6 +106,54 @@ it("keeps measured dimensions across controlled selection updates so nodes remai
   expect(flowProps.current.fitView).toBe(true);
   expect(flowProps.current.nodesDraggable).toBe(true);
   expect(flowProps.current.nodes[0].draggable).toBe(false);
+});
+it("passes logical depths on both sides, through collapse/expand, drafts and branch moves", () => {
+  let map = fixture();
+  const chain = Array.from({ length: 6 }, (_, i) => ({
+    id: `depth-${i + 1}`,
+    text: `Level ${i + 1}`,
+    children: [] as typeof map.root.children,
+    collapsed: false,
+  }));
+  for (let i = 0; i < chain.length - 1; i++) chain[i].children = [chain[i + 1]];
+  map.root.children = [
+    chain[0],
+    { id: "left", text: "Left", children: [], collapsed: false },
+  ];
+  useEditorStore.setState({ map });
+  render(
+    <MemoryRouter>
+      <MindMapCanvas />
+    </MemoryRouter>,
+  );
+  const depth = (id: string) =>
+    flowProps.current.nodes.find((node: any) => node.id === id)?.data.depth;
+  expect(depth(map.root.id)).toBe(0);
+  expect(depth("left")).toBe(1);
+  chain.forEach((node, index) => expect(depth(node.id)).toBe(index + 1));
+  map = structuredClone(map);
+  map.root.children[0].collapsed = true;
+  act(() => useEditorStore.setState({ map }));
+  expect(depth("depth-2")).toBeUndefined();
+  expect(depth("left")).toBe(1);
+  act(() =>
+    useEditorStore.setState({ draft: { id: "draft", parentId: "depth-2" } }),
+  );
+  // The draft expands its parent; its color follows the logical parent depth.
+  map = structuredClone(map);
+  map.root.children[0].collapsed = false;
+  act(() => useEditorStore.setState({ map }));
+  expect(depth("draft")).toBe(3);
+  map = applyOperation(map, {
+    kind: "move",
+    id: "depth-2",
+    parentId: "depth-1",
+    newParentId: map.root.id,
+    beforeId: null,
+  });
+  act(() => useEditorStore.setState({ map, draft: null }));
+  expect(depth("depth-2")).toBe(1);
+  expect(depth("depth-6")).toBe(5);
 });
 function draggableMap() {
   const map = fixture();

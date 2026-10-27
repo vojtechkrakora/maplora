@@ -38,6 +38,7 @@ type MindNode = Node<
   {
     node: MapNode;
     root: boolean;
+    depth: number;
     side: "left" | "right";
     remove(id: string): void;
   },
@@ -45,7 +46,7 @@ type MindNode = Node<
 >;
 export function MindMapNode({ data, selected }: NodeProps<MindNode>) {
   const s = useEditorStore(),
-    { node, root, side } = data;
+    { node, root, side, depth } = data;
   const editing = s.editingNodeId === node.id;
   const [text, setText] = useState(node.text),
     [error, setError] = useState("");
@@ -83,7 +84,7 @@ export function MindMapNode({ data, selected }: NodeProps<MindNode>) {
   return (
     <div
       className={`mind-node ${root ? "root-node" : ""} ${selected ? "is-selected" : ""}`}
-      style={nodeAppearance(node.style)}
+      style={nodeAppearance(node.style, depth)}
       onDoubleClick={() => s.beginEdit(node.id)}
     >
       {root ? (
@@ -227,6 +228,17 @@ export function MindMapCanvas() {
       setStyleTarget(null);
   }, [styleTarget, s.map?.id, s.selectedNodeId, s.editingNodeId, s.draft]);
   const visible = useMemo(() => (map ? allNodes(map.root, true) : []), [map]);
+  const depths = useMemo(() => {
+    const result = new Map<string, number>();
+    const stack = map ? [{ node: map.root, depth: 0 }] : [];
+    while (stack.length) {
+      const { node, depth } = stack.pop()!;
+      result.set(node.id, depth);
+      for (const child of node.children)
+        stack.push({ node: child, depth: depth + 1 });
+    }
+    return result;
+  }, [map]);
   const signature = visible
     .map((n) => `${n.id}:${n.text}:${n.children.length}:${n.collapsed}`)
     .join("|");
@@ -442,6 +454,7 @@ export function MindMapCanvas() {
     data: {
       node,
       root: node === map!.root,
+      depth: depths.get(node.id)!,
       side: (positions.get(node.id)?.x ?? 0) < 0 ? "left" : "right",
       remove,
     },
@@ -690,6 +703,7 @@ export function MindMapCanvas() {
             key={`${map.id}:${selected.id}`}
             node={selected}
             root={selected === map.root}
+            depth={depths.get(selected.id)!}
             onClose={() => {
               setStyleTarget(null);
               canvas.current?.focus();

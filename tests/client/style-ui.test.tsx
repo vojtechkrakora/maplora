@@ -28,7 +28,7 @@ function panel(style = {}) {
   const close = vi.fn();
   useEditorStore.setState({ updateNodeStyle: update });
   const view = render(
-    <NodeContextMenu node={node} root={false} onClose={close} />,
+    <NodeContextMenu node={node} root={false} depth={3} onClose={close} />,
   );
   return {
     node,
@@ -96,7 +96,7 @@ it("clears overrides individually and restores theme defaults without persisting
   expect(
     screen.getByLabelText("Style preview").querySelector(".mind-node")!.style
       .backgroundColor,
-  ).toBe("");
+  ).toBe("var(--node-bg-depth-3)");
   await user.click(
     screen.getByRole("button", { name: "Restore theme defaults" }),
   );
@@ -178,7 +178,7 @@ it("renders stored CSS node colors and removes inline overrides when reset", () 
   };
   const props: any = {
     id: node.id,
-    data: { node, root: false, side: "left" },
+    data: { node, root: false, side: "left", depth: 1 },
     selected: false,
   };
   const { container, rerender } = render(<MindMapNode {...props} />);
@@ -193,7 +193,11 @@ it("renders stored CSS node colors and removes inline overrides when reset", () 
       data={{ ...props.data, node: { ...node, style: undefined } }}
     />,
   );
-  expect(container.querySelector(".mind-node")!.getAttribute("style")).toBe("");
+  expect(container.querySelector(".mind-node")!.style.backgroundColor).toBe(
+    "var(--node-bg-depth-1)",
+  );
+  expect(container.querySelector(".mind-node")!.style.color).toBe("");
+  expect(container.querySelector(".mind-node")!.style.borderColor).toBe("");
 });
 it.each(["solid", "dashed", "dotted"] as const)(
   "renders %s SVG connectors with color, thickness and a theme fallback",

@@ -18,6 +18,12 @@
   --edge: #94b39e;
   --grid: #d6ddd3;
   --node: #fff;
+  --node-bg-depth-0: #dcebdc;
+  --node-bg-depth-1: #e3edf7;
+  --node-bg-depth-2: #f2e5ee;
+  --node-bg-depth-3: #f7edd8;
+  --node-bg-depth-4: #e2efeb;
+  --node-bg-depth-5: #ebe6f6;
   --shadow: 0 4px 24px #263b3308;
   color-scheme: light;
 }
@@ -702,9 +708,7 @@ label {
   color: var(--text);
 }
 .root-node {
-  background: var(--accent);
   border-color: var(--accent);
-  color: white;
   padding: 20px 28px;
   font-size: 16px;
   font-weight: 500;
@@ -943,6 +947,12 @@ label {
   --bg: #19221e;
   --surface: #212c25;
   --node: #25352b;
+  --node-bg-depth-0: #304b38;
+  --node-bg-depth-1: #293f55;
+  --node-bg-depth-2: #493449;
+  --node-bg-depth-3: #4a402b;
+  --node-bg-depth-4: #294841;
+  --node-bg-depth-5: #3c3552;
   --text: #e0e8dd;
   --muted: #93a494;
   --border: #35443a;

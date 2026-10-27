@@ -22,7 +22,13 @@ function node() {
     <MindMapNode
       {...({
         id: map.root.id,
-        data: { node: map.root, root: true, side: "right", remove: vi.fn() },
+        data: {
+          node: map.root,
+          root: true,
+          side: "right",
+          depth: 0,
+          remove: vi.fn(),
+        },
         selected: true,
       } as any)}
     />,

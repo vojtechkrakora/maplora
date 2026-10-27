@@ -444,8 +444,8 @@ MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Po
     - Assert error toast appears when `navigator.clipboard.writeText` rejects
     - _Requirements: 27.1, 27.6, 27.7, 27.8_
 
-- [ ] 26. Depth-based node background colors (Post-MVP)
-  - [ ]* 26.1 Define depth-based background color palettes in the theme CSS custom properties
+- [x] 26. Depth-based node background colors (Post-MVP)
+  - [x]* 26.1 Define depth-based background color palettes in the theme CSS custom properties
     - In the existing theme definition (light and dark), add a set of CSS custom properties for depth levels 0 through 5: e.g. `--node-bg-depth-0` through `--node-bg-depth-5` for each theme
     - Light theme palette: distinct, visually harmonious pastel/muted colors at each depth level
     - Dark theme palette: distinct, visually legible darker-tinted colors at each depth level
@@ -453,14 +453,14 @@ MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Po
     - The palette values are pure CSS custom properties — no JavaScript logic required for the palette itself
     - _Requirements: 15.6, 17.8_
 
-  - [ ]* 26.2 Apply depth-based background color to `MindMapNode` when no custom background is set
+  - [x]* 26.2 Apply depth-based background color to `MindMapNode` when no custom background is set
     - In `MindMapNode`, compute the node's depth from the map tree (or receive it as a prop passed down from `MindMapCanvas`)
     - WHERE `node.style?.backgroundColor` is not set, apply `var(--node-bg-depth-{depth % 6})` as the node's background
     - WHERE `node.style?.backgroundColor` is set, use the stored custom color instead — depth-based default is fully overridden
     - The "Restore theme defaults" action in the style panel (task 18) removes the stored `backgroundColor`, which causes the depth-based color to reappear automatically
     - _Requirements: 15.6_
 
-  - [ ]* 26.3 Write unit tests for depth-based color application logic
+  - [x]* 26.3 Write unit tests for depth-based color application logic
     - Test that a node at depth 0 with no `style.backgroundColor` receives `var(--node-bg-depth-0)`
     - Test that a node at depth 3 with no `style.backgroundColor` receives `var(--node-bg-depth-3)`
     - Test that a node at depth 6 (beyond palette length) receives `var(--node-bg-depth-0)` (cycles)
@@ -525,6 +525,14 @@ Task 25 implemented on 2026-10-27: Copy as Markdown in the editor toolbar conver
 The button remains enabled during selection changes, editing, drafts, saving and save errors. Pointer activation retains input focus so copying does not trigger blur-based saving. The native button supports Enter and Space, has a full accessible name and tooltip, and shows a compact copy icon on narrow screens. Success appears only after the clipboard write resolves; confirmation dismisses after exactly two seconds. Unavailable or rejected clipboard writes show Could not copy to clipboard and allow retry. Repeated copies restart the timer, and outdated asynchronous results after a newer copy, map change or unmount are ignored. No dependencies, schemas or server endpoints changed; tasks 20–22 remain deferred.
 
 All 176 automated tests passed across 18 files, including 18 new conversion, clipboard and toolbar-state cases. The production build and formatting checks passed. Real Chrome verified actual clipboard text, collapsed descendants, automatic confirmation dismissal, editing and draft focus without saves, keyboard activation, dark theme, 320px/390px toolbar layout, unavailable/rejected clipboard errors and no page errors or map writes. Browser tests used isolated temporary map data. Docker Compose verification passed the image build, static assets, SPA routing, API, map operations and persisted JSON across restart/recreation, trash and restoration.
+
+## Task 26 Implementation Notes
+
+Task 26 implemented on 2026-10-27: six CSS custom properties per theme define distinct backgrounds for depths 0–5, with deeper nodes cycling by depth modulo six. Light mode uses muted green, blue, rose, sand, teal and lavender; dark mode uses corresponding darker tints. The canvas computes logical depths once per in-memory tree change and passes them to nodes and node options. Both sides use the same palette, and collapse state does not change depth. Drafts receive their parent's depth plus one; moving a branch recomputes the whole subtree's default colors without writing color values to the map.
+
+`nodeAppearance` uses a stored custom background whenever present and otherwise selects the depth's CSS variable. The native background picker and preview use the same fallback, including after a theme change or Reset. Restore theme defaults continues to remove overrides, automatically revealing the current depth color. Default root text now uses the theme text color for contrast against its muted background; its accent border, larger type and padding remain. Explicit text, border and connector styles remain unchanged. No dependencies, schema changes or server endpoints were added; tasks 20–22 remain deferred.
+
+All 189 automated tests passed across 19 files, including 13 new cases for depth slots, cycling, custom backgrounds, resets, logical depths on both sides, collapse/expansion, drafts and branch moves. Existing style preview/reset assertions now expect the depth fallback. The production build and formatting checks passed. Real Chrome verified depths 0–8, six distinct colors and text contrast of at least 4.5:1 in both themes, custom background precedence, individual reset/full restore/reload, native picker and preview synchronization, collapse/expansion and branch-move recoloring. A 500-node map rendered with all 499 connectors in 286ms, without overlapping labels or page errors. Palette/theme changes did not write map data. Browser checks used isolated temporary map data. Docker Compose verification passed the image build, static assets, SPA routing, API, custom styles and map operations, bind-mounted JSON across restart/recreation, trash and restoration.
 
 ## Notes
 
