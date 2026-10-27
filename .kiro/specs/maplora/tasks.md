@@ -377,8 +377,8 @@ MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Po
     - Test 50-op cap (oldest dropped); test undo no-op when stack empty; test redo no-op when stack empty; test redo stack cleared on new operation
     - _Requirements: 25.4, 25.7, 25.8_
 
-- [ ] 24. Map library search and sorting (Post-MVP)
-  - [ ]* 24.1 Add search and sort state to `mapListStore` and implement client-side filtering and sorting
+- [x] 24. Map library search and sorting (Post-MVP)
+  - [x]* 24.1 Add search and sort state to `mapListStore` and implement client-side filtering and sorting
     - Extend `mapListStore` with: `searchQuery: string`, `sortOrder: SortOrder` (type: `'updatedAt_desc' | 'updatedAt_asc' | 'title_asc' | 'title_desc'`)
     - Add actions: `setSearchQuery(query: string)`, `setSortOrder(order: SortOrder)`
     - Add derived selector `filteredAndSortedMaps()`: filters `maps` by case-insensitive substring match on `title`, then sorts by the active `sortOrder`
@@ -386,12 +386,12 @@ MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Po
     - All filtering and sorting operates on the in-memory `maps` array; no additional API calls
     - _Requirements: 26.1, 26.2, 26.3, 26.8, 26.9, 26.10_
 
-  - [ ]* 24.2 Persist sort order preference in localStorage
+  - [x]* 24.2 Persist sort order preference in localStorage
     - On `setSortOrder()`: write the selected sort order to `localStorage` under key `maplora:sortOrder`
     - On `mapListStore` initialization: read `maplora:sortOrder` from `localStorage`; validate against known values; fall back to `'updatedAt_desc'` if missing, invalid, or `localStorage` unavailable
     - _Requirements: 26.6, 26.7_
 
-  - [ ]* 24.3 Implement search input and sort control UI in `MapListPage`
+  - [x]* 24.3 Implement search input and sort control UI in `MapListPage`
     - Add a search input field to `MapListHeader`; bind to `mapListStore.searchQuery` via `setSearchQuery`; debounced at 50ms (well within the 100ms requirement)
     - Add a sort dropdown/select to `MapListHeader` with the four sort options; bind to `mapListStore.sortOrder` via `setSortOrder`; display current sort as selected option
     - `MapListPage` renders `filteredAndSortedMaps()` instead of raw `maps`
@@ -399,12 +399,12 @@ MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Po
     - Search and sort controls remain mounted and responsive regardless of list size
     - _Requirements: 26.1, 26.2, 26.3, 26.4, 26.5, 26.6, 26.10_
 
-  - [ ]* 24.4 Write unit tests for search and sort logic
+  - [x]* 24.4 Write unit tests for search and sort logic
     - Test `filteredAndSortedMaps()` with: empty query returns all maps; query matches substring case-insensitively; query with no match returns empty array; all four sort orders produce correct ordering; combined filter+sort applies filter first then sorts
     - Test `setSortOrder` persists to localStorage; test initialization reads and validates persisted value; test fallback on missing/invalid value
     - _Requirements: 26.2, 26.3, 26.6, 26.7, 26.8_
 
-  - [ ]* 24.5 Write component tests for `MapListPage` search and sort UI
+  - [x]* 24.5 Write component tests for `MapListPage` search and sort UI
     - Use MSW + React Testing Library; test: search input filters displayed cards; no-results state shows query and clear button; clear button resets search; sort dropdown re-orders cards; sort selection persists across remount (mocked localStorage)
     - _Requirements: 26.1, 26.3, 26.4, 26.5, 26.6_
 
@@ -450,6 +450,14 @@ Task 19 implemented on 2026-10-27: the map library header and editor toolbar off
 All 135 automated tests passed across 14 files, including the actual head bootstrap, stored/system/default precedence, blocked storage, keyboard activation, shared controls and editor color mode. The production build passed. Real Chrome checks passed the head bootstrap with the main bundle blocked, saved/system/light fallbacks, reload persistence, library/editor/trash/dialog palettes, native picker defaults, custom style preservation, blocked-storage session behavior, mobile controls, and no map writes or page errors. Theme changes took 23–178ms, including 97ms on a 500-node canvas, within the 300ms target. The single-click options and styling regression checks also passed. Docker Compose verification passed the build, static assets, theme bootstrap before the body, SPA routing, API, duplication, sibling order, branch moves, custom styles, bind-mounted JSON after restart/recreation, trash and restoration. Tasks 20–22 remain deferred.
 
 ---
+
+## Requirement 26 Implementation Notes
+
+Task 24 implemented on 2026-10-27: the library offers a labeled search input with a 50ms trailing debounce and a native sort select for newest/oldest edited and title A → Z/Z → A. `mapListStore` owns the query and sort order and derives a filtered, sorted copy of its loaded summaries without mutating the source or requesting more data. Case-insensitive substring search includes unreadable files' filename fallbacks. Missing/invalid timestamps sort last in either date direction; equal values preserve the loaded order. Empty search restores all maps. No matches shows the query as escaped text with Clear search, which also cancels pending input. Controls remain mounted through loading, empty states and results, and use the existing light/dark colors and responsive layout.
+
+Sort changes persist under `maplora:sortOrder`; initialization validates all four supported values and defaults to newest first when missing, invalid or unreadable. Blocked reads and writes never prevent searching or sorting; a choice that cannot be saved remains usable in the app session and reload uses the default. Search is session state, not a stored preference. No schema, API or dependency changes were needed. Tasks 20–22 remain deferred.
+
+All 158 automated tests passed across 16 files, including 23 new store and MSW/component cases for filtering, all sort directions, combined operations, immutable source data, timestamp edge cases, persistence initialization, unavailable storage, exact debounce timing, pending-input cancellation, no-results clearing, remounts and in-memory list changes. The existing create-navigation test now waits for navigation before looking for a root label also present on a transient library card. The production build and formatting checks passed. Real Chrome verified 500 and 750 maps, all sort options, persistence after reload, invalid/blocked storage, mobile light/dark controls, no additional list requests and no page errors or map writes. Search updates with 500 maps took 56–67ms, including the debounce, below the 100ms target. Docker Compose verification passed the image build, assets, SPA routing, API and persisted JSON across restart/recreation, duplication, reordering, branch moves, custom styles, trash and restoration.
 
 ## Notes
 

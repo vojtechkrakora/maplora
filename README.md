@@ -34,6 +34,7 @@ The application has no authentication. Deploy it within a trusted private networ
 ## Editing
 
 - Create, rename, duplicate, and open maps from the home screen. Titles accept 1–100 characters.
+- Search the library by a case-insensitive part of a title. Results update as you type; **Clear search** restores the full list when there are no matches. Sort by last edited (newest or oldest first) or title (A → Z or Z → A). The browser remembers the sort order; missing, invalid, or unavailable storage defaults to newest first. If saving the preference fails, sorting still works for the current app session. Filtering and sorting use the loaded list without additional server requests. Unreadable files remain searchable by filename and appear last in date sorts.
 - **Duplicate** creates an independent copy with fresh map and node IDs, a new creation time, and revision 1. Its title ends in “ (Copy)”; long source titles are shortened to keep the result within 100 characters. Labels, branch order, collapse states, and stored styles are preserved.
 - Select a node and use the floating toolbar, double-click, or keyboard shortcuts. Node labels accept 1–200 characters.
 - Changes save automatically. The toolbar reports saving, saved, and failed states. Failed mutations roll back and offer **Retry change**, except branch moves, which show a temporary error and can be dragged again.
@@ -95,7 +96,7 @@ The Compose verification requires a working local Docker daemon. It uses a separ
 
 ## Scope and limitations
 
-This implements MVP tasks 1–14, post-MVP tasks 15–19 (duplicate maps, reorder siblings, move branches, visual customization, and light/dark themes), and the Docker verification checkpoint in the Kiro plan. Tasks and test coverage are tracked in `.kiro/specs/maplora/tasks.md`. The bounded snapshot infrastructure requested by task 9.1 is present; undo/redo controls and shortcuts are intentionally deferred with task 22.
+This implements MVP tasks 1–14, post-MVP tasks 15–19 (duplicate maps, reorder siblings, move branches, visual customization, and light/dark themes), task 24 (library search and sorting, Requirement 26), and the Docker verification checkpoint in the Kiro plan. Tasks and test coverage are tracked in `.kiro/specs/maplora/tasks.md`. The bounded snapshot infrastructure requested by task 9.1 is present; undo/redo controls and shortcuts are intentionally deferred with task 22.
 
 Import/export, PNG export, and undo/redo remain deferred to tasks 20–22. Theme preferences are local to each browser; map files retain only per-node styling. Schema v1 is the only supported version; a migration registry is ready for future versions, but no fictional older format is accepted.
 

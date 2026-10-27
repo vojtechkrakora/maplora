@@ -47,7 +47,10 @@ afterAll(() => {
 });
 beforeEach(() => {
   useThemeStore.setState({ theme: "light" });
-  useMapListStore.setState({ maps: [], loading: false, error: null });
+  useMapListStore.setState({
+    maps: [], loading: false, error: null,
+    searchQuery: "", sortOrder: "updatedAt_desc",
+  });
 });
 it("offers the theme toggle in the library without creating or saving maps", async () => {
   handlers.use(http.get("*/api/maps", () => HttpResponse.json([])));
@@ -89,6 +92,9 @@ it("shows the empty state and validates creation before opening the new editor",
   expect(await screen.findByRole("alert")).toHaveTextContent("1–100");
   await user.type(screen.getByLabelText("Map title"), "A new idea");
   await user.click(screen.getByRole("button", { name: "Create map" }));
+  await waitFor(() =>
+    expect(screen.queryByRole("heading", { name: "Your mind, mapped." })).not.toBeInTheDocument(),
+  );
   expect(await screen.findByText(map.root.text)).toBeInTheDocument();
 });
 it("renders cards including corrupt entries and validates and saves rename", async () => {

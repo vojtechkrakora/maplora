@@ -80,7 +80,8 @@ a:hover {
 }
 button:focus-visible,
 a:focus-visible,
-input:focus-visible {
+input:focus-visible,
+select:focus-visible {
   outline: 3px solid #82ae8c;
   outline-offset: 3px;
 }
@@ -320,6 +321,38 @@ label {
 .page-heading button span {
   font-size: 20px;
   margin-right: 5px;
+}
+.library-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.library-controls label {
+  margin: 0;
+  min-width: 0;
+}
+.library-search {
+  flex: 1 1 240px;
+}
+.library-controls input,
+.library-controls select {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 11px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+}
+.library-controls > label:last-child {
+  flex: 0 1 250px;
+}
+.empty-state h2 {
+  overflow-wrap: anywhere;
 }
 .section-label {
   display: flex;
