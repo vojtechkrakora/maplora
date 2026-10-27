@@ -4,7 +4,7 @@
 
 This plan breaks Maplora into small, independently testable increments. Tasks are ordered so that each step produces a runnable, verifiable state of the application. The project is a TypeScript monorepo with a Vite-built React SPA served by a Hono API server inside a single Docker container. All data lives on the host filesystem as JSON files.
 
-MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Post-MVP requirements (Req 5, 10–11, 15, 17–20, 25–26) are optional tasks marked with `*`.
+MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Post-MVP requirements (Req 5, 10–11, 15, 17–20, 25–27) are optional tasks marked with `*`.
 
 ---
 
@@ -408,6 +408,42 @@ MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Po
     - Use MSW + React Testing Library; test: search input filters displayed cards; no-results state shows query and clear button; clear button resets search; sort dropdown re-orders cards; sort selection persists across remount (mocked localStorage)
     - _Requirements: 26.1, 26.3, 26.4, 26.5, 26.6_
 
+- [ ] 25. Copy as Markdown (Post-MVP)
+  - [ ]* 25.1 Implement `mapToMarkdown()` conversion function
+    - Create `src/client/markdownExport.ts`
+    - `mapToMarkdown(map: MapFile): string` — pure function, no side effects
+    - Root node rendered as `# {root.text}`
+    - Each child node rendered as a Markdown bullet `- {node.text}` with 2-space indentation per depth level (depth 1 = `- `, depth 2 = `  - `, depth 3 = `    - `, etc.)
+    - Traversal is depth-first, preserving sibling order from `node.children`
+    - All nodes included regardless of `collapsed` state — full logical structure exported
+    - _Requirements: 27.2, 27.3, 27.4, 27.5_
+
+  - [ ]* 25.2 Implement "Copy as Markdown" action in `EditorToolbar`
+    - Add "Copy as Markdown" button to `EditorToolbar`; always visible while a map is open
+    - On click: call `mapToMarkdown(editorStore.map)`, write result to clipboard via `navigator.clipboard.writeText()`
+    - On success: show a brief "Copied to clipboard" toast that auto-dismisses after 2 seconds
+    - IF `navigator.clipboard` is unavailable or the write rejects: show an error toast "Could not copy to clipboard"
+    - Button remains enabled regardless of selected node or editing state
+    - _Requirements: 27.1, 27.6, 27.7, 27.8_
+
+  - [ ]* 25.3 Write unit tests for `mapToMarkdown()`
+    - Test single root node (no children) produces `# {title}` with no bullet lines
+    - Test one level of children: root + 3 children produces `# root\n- a\n- b\n- c`
+    - Test two levels of nesting: child with grandchildren uses 2-space indented bullets
+    - Test deep nesting (5 levels): verify indentation multiplies correctly at each depth
+    - Test collapsed node: collapsed branch still appears fully in output
+    - Test sibling order: children appear in the order defined in `node.children`
+    - Test special characters in node text (e.g. `#`, `-`, `*`): output is not escaped (plain text export)
+    - _Requirements: 27.3, 27.4, 27.5_
+
+  - [ ]* 25.4 Write component tests for the "Copy as Markdown" toolbar button
+    - Mock `navigator.clipboard.writeText` as a spy
+    - Assert button is present and enabled while a map is loaded
+    - Assert clicking the button calls `navigator.clipboard.writeText` with output that starts with `# {map root text}`
+    - Assert "Copied to clipboard" toast appears after a successful write
+    - Assert error toast appears when `navigator.clipboard.writeText` rejects
+    - _Requirements: 27.1, 27.6, 27.7, 27.8_
+
 - [x] 23. Final checkpoint — all tests pass, Docker build verified
   - Ensure all tests pass, ask the user if questions arise.
 
@@ -502,7 +538,10 @@ All 158 automated tests passed across 16 files, including 23 new store and MSW/c
     { "id": 24, "tasks": ["22.2", "22.3"] },
     { "id": 25, "tasks": ["24.1"] },
     { "id": 26, "tasks": ["24.2", "24.3"] },
-    { "id": 27, "tasks": ["24.4", "24.5"] }
+    { "id": 27, "tasks": ["24.4", "24.5"] },
+    { "id": 28, "tasks": ["25.1"] },
+    { "id": 29, "tasks": ["25.2", "25.3"] },
+    { "id": 30, "tasks": ["25.4"] }
   ]
 }
 ```

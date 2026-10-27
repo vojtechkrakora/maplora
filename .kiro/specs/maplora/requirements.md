@@ -73,6 +73,7 @@ The following requirements are planned enhancements to be implemented after the 
 | 20 | Export to PNG | Image sharing |
 | 25 | Undo and Redo | History depth ≥ 50 operations |
 | 26 | Map Library Search and Sorting | Client-side filtering and sort persistence |
+| 27 | Copy as Markdown | Clipboard export for sharing via chat or email |
 
 ---
 
@@ -495,3 +496,32 @@ The following requirements are planned enhancements to be implemented after the 
 8. WHEN both a search query and a sort order are active, THE Application SHALL first filter by the search query and then sort the filtered results by the selected sort order.
 9. THE Application SHALL perform all filtering and sorting on the client side using the map data already loaded in memory, without making additional server requests.
 10. THE search and sort controls SHALL remain visible and functional when the map list contains 500 or more maps without causing a perceptible delay.
+
+---
+
+### Requirement 27: Copy Mind Map as Markdown
+
+**User Story:** As a user, I want to copy my mind map as formatted Markdown text, so that I can share it as readable structured content through chat, email, or any text-based communication.
+
+#### Acceptance Criteria
+
+1. THE Application SHALL provide a "Copy as Markdown" action in the Editor toolbar that copies a Markdown text representation of the mind map to the system clipboard.
+2. WHEN the user triggers the "Copy as Markdown" action, THE Application SHALL generate the Markdown representation from the current in-memory map state without making any server requests.
+3. THE generated Markdown SHALL represent the mind map root as a top-level heading using `# {root text}`, and each child node as a Markdown bullet point (`-`) indented proportionally to its depth in the tree, such that each additional level of depth adds two spaces of indentation.
+4. THE generated Markdown SHALL include all nodes in the tree, including nodes inside collapsed branches, preserving the full logical structure of the map regardless of the current collapsed/expanded display state.
+5. THE generated Markdown SHALL preserve the sibling order of nodes as defined in the map data.
+6. WHEN the Markdown has been successfully written to the clipboard, THE Application SHALL display a brief confirmation message (e.g., "Copied to clipboard") that dismisses automatically after 2 seconds.
+7. IF the clipboard API is unavailable or the write operation fails, THE Application SHALL display an error message indicating the copy could not be completed.
+8. THE "Copy as Markdown" action SHALL be accessible from the Editor toolbar and SHALL be available at all times while a map is open, regardless of the selected node or editing state.
+
+**Example output** for a map titled "Project X" with branches "Frontend" (children: "React", "TypeScript") and "Backend" (children: "Node.js", "Hono"):
+
+```
+# Project X
+- Frontend
+  - React
+  - TypeScript
+- Backend
+  - Node.js
+  - Hono
+```
