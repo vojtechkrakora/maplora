@@ -4,7 +4,7 @@
 
 This plan breaks Maplora into small, independently testable increments. Tasks are ordered so that each step produces a runnable, verifiable state of the application. The project is a TypeScript monorepo with a Vite-built React SPA served by a Hono API server inside a single Docker container. All data lives on the host filesystem as JSON files.
 
-MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Post-MVP requirements (Req 5, 10–11, 15, 17–20, 25) are optional tasks marked with `*`.
+MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Post-MVP requirements (Req 5, 10–11, 15, 17–20, 25–26) are optional tasks marked with `*`.
 
 ---
 
@@ -377,6 +377,37 @@ MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Po
     - Test 50-op cap (oldest dropped); test undo no-op when stack empty; test redo no-op when stack empty; test redo stack cleared on new operation
     - _Requirements: 25.4, 25.7, 25.8_
 
+- [ ] 24. Map library search and sorting (Post-MVP)
+  - [ ]* 24.1 Add search and sort state to `mapListStore` and implement client-side filtering and sorting
+    - Extend `mapListStore` with: `searchQuery: string`, `sortOrder: SortOrder` (type: `'updatedAt_desc' | 'updatedAt_asc' | 'title_asc' | 'title_desc'`)
+    - Add actions: `setSearchQuery(query: string)`, `setSortOrder(order: SortOrder)`
+    - Add derived selector `filteredAndSortedMaps()`: filters `maps` by case-insensitive substring match on `title`, then sorts by the active `sortOrder`
+    - Default `sortOrder` is `'updatedAt_desc'`
+    - All filtering and sorting operates on the in-memory `maps` array; no additional API calls
+    - _Requirements: 26.1, 26.2, 26.3, 26.8, 26.9, 26.10_
+
+  - [ ]* 24.2 Persist sort order preference in localStorage
+    - On `setSortOrder()`: write the selected sort order to `localStorage` under key `maplora:sortOrder`
+    - On `mapListStore` initialization: read `maplora:sortOrder` from `localStorage`; validate against known values; fall back to `'updatedAt_desc'` if missing, invalid, or `localStorage` unavailable
+    - _Requirements: 26.6, 26.7_
+
+  - [ ]* 24.3 Implement search input and sort control UI in `MapListPage`
+    - Add a search input field to `MapListHeader`; bind to `mapListStore.searchQuery` via `setSearchQuery`; debounced at 50ms (well within the 100ms requirement)
+    - Add a sort dropdown/select to `MapListHeader` with the four sort options; bind to `mapListStore.sortOrder` via `setSortOrder`; display current sort as selected option
+    - `MapListPage` renders `filteredAndSortedMaps()` instead of raw `maps`
+    - WHEN search produces no results: show a "no results" message containing the query text and a "Clear search" button that calls `setSearchQuery('')`
+    - Search and sort controls remain mounted and responsive regardless of list size
+    - _Requirements: 26.1, 26.2, 26.3, 26.4, 26.5, 26.6, 26.10_
+
+  - [ ]* 24.4 Write unit tests for search and sort logic
+    - Test `filteredAndSortedMaps()` with: empty query returns all maps; query matches substring case-insensitively; query with no match returns empty array; all four sort orders produce correct ordering; combined filter+sort applies filter first then sorts
+    - Test `setSortOrder` persists to localStorage; test initialization reads and validates persisted value; test fallback on missing/invalid value
+    - _Requirements: 26.2, 26.3, 26.6, 26.7, 26.8_
+
+  - [ ]* 24.5 Write component tests for `MapListPage` search and sort UI
+    - Use MSW + React Testing Library; test: search input filters displayed cards; no-results state shows query and clear button; clear button resets search; sort dropdown re-orders cards; sort selection persists across remount (mocked localStorage)
+    - _Requirements: 26.1, 26.3, 26.4, 26.5, 26.6_
+
 - [x] 23. Final checkpoint — all tests pass, Docker build verified
   - Ensure all tests pass, ask the user if questions arise.
 
@@ -460,7 +491,10 @@ All 135 automated tests passed across 14 files, including the actual head bootst
     { "id": 21, "tasks": ["20.2"] },
     { "id": 22, "tasks": ["20.3", "21.1"] },
     { "id": 23, "tasks": ["22.1"] },
-    { "id": 24, "tasks": ["22.2", "22.3"] }
+    { "id": 24, "tasks": ["22.2", "22.3"] },
+    { "id": 25, "tasks": ["24.1"] },
+    { "id": 26, "tasks": ["24.2", "24.3"] },
+    { "id": 27, "tasks": ["24.4", "24.5"] }
   ]
 }
 ```

@@ -72,6 +72,7 @@ The following requirements are planned enhancements to be implemented after the 
 | 19 | Import from JSON | Import/export pair |
 | 20 | Export to PNG | Image sharing |
 | 25 | Undo and Redo | History depth ≥ 50 operations |
+| 26 | Map Library Search and Sorting | Client-side filtering and sort persistence |
 
 ---
 
@@ -471,3 +472,26 @@ The following requirements are planned enhancements to be implemented after the 
 6. WHEN the map is closed or the Editor is navigated away from, THE Editor MAY discard the undo history; THE undo history SHALL NOT be required to persist across sessions.
 7. WHEN no further undo operations are available, THE Editor SHALL disable the undo control and SHALL take no action when the undo shortcut is triggered.
 8. WHEN no further redo operations are available, THE Editor SHALL disable the redo control and SHALL take no action when the redo shortcut is triggered.
+
+---
+
+### Requirement 26: Map Library Search and Sorting
+
+**User Story:** As a user, I want to search and sort my mind map library, so that I can quickly find a specific map even when I have hundreds of them.
+
+#### Acceptance Criteria
+
+1. THE Application SHALL display a search input field on the map list screen that filters the displayed map cards in real time as the user types.
+2. WHEN the user types in the search input, THE Application SHALL filter the displayed map list to show only maps whose title contains the search query as a case-insensitive substring, updating the results within 100ms of each keystroke.
+3. WHEN the search input is empty, THE Application SHALL display all maps without filtering.
+4. WHEN the active search query produces no matching maps, THE Application SHALL display a "no results" message that includes the search query and a button to clear the search.
+5. THE Application SHALL provide a sort control on the map list screen with the following sort options:
+   - Last edited (descending) — default
+   - Last edited (ascending)
+   - Title (A → Z)
+   - Title (Z → A)
+6. WHEN the user selects a sort option, THE Application SHALL re-sort the displayed map list immediately and persist the selected sort order in localStorage so it is restored on subsequent visits.
+7. IF localStorage is unavailable, THE Application SHALL apply the default sort order (last edited, descending) for the current session without persisting it.
+8. WHEN both a search query and a sort order are active, THE Application SHALL first filter by the search query and then sort the filtered results by the selected sort order.
+9. THE Application SHALL perform all filtering and sorting on the client side using the map data already loaded in memory, without making additional server requests.
+10. THE search and sort controls SHALL remain visible and functional when the map list contains 500 or more maps without causing a perceptible delay.
