@@ -74,6 +74,7 @@ The following requirements are planned enhancements to be implemented after the 
 | 25 | Undo and Redo | History depth ≥ 50 operations |
 | 26 | Map Library Search and Sorting | Client-side filtering and sort persistence |
 | 27 | Copy as Markdown | Clipboard export for sharing via chat or email |
+| 28 | Map Tags | Tag assignment, autocomplete, AND-filter in map library |
 
 ---
 
@@ -527,3 +528,27 @@ The following requirements are planned enhancements to be implemented after the 
   - Node.js
   - Hono
 ```
+
+---
+
+### Requirement 28: Map Tags
+
+**User Story:** As a user, I want to assign tags to my mind maps and filter the library by tag, so that I can organize and find maps across topics more effectively.
+
+#### Acceptance Criteria
+
+1. THE Map File schema SHALL include a `tags` field at the root level containing an ordered array of tag strings; the field SHALL default to an empty array for maps that have no tags.
+2. WHEN a map has no tags, THE Application SHALL store an empty `tags` array in the Map File and SHALL NOT display any tag indicators on the map card.
+3. EACH tag string SHALL be between 1 and 32 characters in length, SHALL NOT consist entirely of whitespace, and SHALL NOT contain commas; THE Application SHALL display a validation error and reject any tag that violates these constraints.
+4. EACH mind map SHALL support a maximum of 20 tags; THE Application SHALL display a validation error and reject adding a tag when the map already has 20 tags.
+5. THE Application SHALL provide a tag management control on the map card (in the map list screen) that allows the user to add and remove tags for a given map.
+6. WHEN the user adds a tag to a map, THE Application SHALL save the updated `tags` array to the Map File using the existing safe-write mechanism and SHALL update the map card display without requiring a page reload.
+7. WHEN the user removes a tag from a map, THE Application SHALL save the updated `tags` array to the Map File using the existing safe-write mechanism and SHALL remove the tag from the map card display without requiring a page reload.
+8. THE Application SHALL display a tag input that offers autocomplete suggestions based on all unique tags already present across all loaded maps, sorted alphabetically.
+9. THE Application SHALL display the assigned tags on each map card in the map list, showing up to 5 tags directly and indicating any additional tags with a count badge (e.g., "+3").
+10. THE Application SHALL provide a tag filter control on the map list screen that shows all unique tags present in the loaded map collection.
+11. WHEN the user selects one or more tags in the tag filter control, THE Application SHALL display only maps that contain ALL selected tags (AND logic), combining the tag filter with any active search query and sort order.
+12. WHEN no tags are selected in the tag filter, THE Application SHALL display all maps without tag filtering.
+13. THE Application SHALL perform all tag filtering on the client side using the map data already loaded in memory, without making additional server requests.
+14. THE `MapSummary` object returned by the list API SHALL include the `tags` array so that the map list screen can filter and display tags without loading the full `MapFile` for each map.
+15. IF a Map File does not contain a `tags` field (e.g., files created before this feature), THE Server SHALL treat the missing field as an empty array when reading the file, without rejecting or migrating the file.

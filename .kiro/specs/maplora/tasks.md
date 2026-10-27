@@ -467,6 +467,49 @@ MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Po
     - Test that a node with `style.backgroundColor` set to any value uses that value and ignores depth-based default
     - _Requirements: 15.6, 17.8_
 
+- [ ] 27. Map Tags (Post-MVP)
+  - [ ]* 27.1 Extend `MapFile` schema and `MapSummary` to include `tags`
+    - Add `tags: z.array(z.string()).default([])` to `MapFileSchema` in `src/shared/schema.ts`
+    - Add `tags: string[]` to `MapSummary` type
+    - Tag validation rules (enforce in schema and API): 1–32 characters, not all-whitespace, no commas, max 20 tags per map
+    - WHEN the Server reads a Map File that does not contain a `tags` field (legacy file), treat it as an empty array without rejecting or migrating the file
+    - Update `listMaps()` in `MapFileStore` to include `tags` in the returned `MapSummary` objects
+    - _Requirements: 28.1, 28.2, 28.3, 28.4, 28.14, 28.15_
+
+  - [ ]* 27.2 Implement tag save API endpoint
+    - Add `PATCH /api/maps/:mapId/tags` endpoint: accepts `{ tags: string[] }`, validates per tag rules (1–32 chars, no commas, no all-whitespace, max 20), updates `tags` field in Map File via `MapFileStore.renameMap`-style atomic write, returns updated `MapSummary`
+    - Add `updateTags(mapId, tags)` function to `src/client/api.ts`
+    - _Requirements: 28.3, 28.4, 28.6, 28.7_
+
+  - [ ]* 27.3 Extend `mapListStore` with tag state and filtering
+    - Add `activeTags: string[]` to `mapListStore` state
+    - Add action `setActiveTags(tags: string[])`: replaces the active tag filter
+    - Extend `filteredAndSortedMaps()` selector: after text-search filtering, additionally filter to maps that contain ALL tags in `activeTags` (AND logic); empty `activeTags` disables tag filtering
+    - Add derived selector `allTags(): string[]`: returns all unique tags across all loaded `MapSummary` objects, sorted alphabetically
+    - _Requirements: 28.10, 28.11, 28.12, 28.13_
+
+  - [ ]* 27.4 Implement tag management UI on `MapCard`
+    - Add a tag management control to `MapCard` that allows adding and removing tags
+    - Tag input with autocomplete: suggest tags from `mapListStore.allTags()` filtered by current input; show alphabetically sorted suggestions; allow free-text entry for new tags
+    - Display up to 5 tags directly on the card as chips/badges; show "+N" count badge when more than 5 tags are assigned
+    - Add/remove calls `updateTags(mapId, newTags)` and updates the card immediately on success without page reload
+    - Enforce validation constraints (1–32 chars, no commas, no all-whitespace, max 20 tags) inline in the input with error messages
+    - _Requirements: 28.2, 28.3, 28.4, 28.5, 28.6, 28.7, 28.8, 28.9_
+
+  - [ ]* 27.5 Implement tag filter control in `MapListPage`
+    - Add a tag filter panel/dropdown to `MapListHeader` showing all unique tags from `mapListStore.allTags()`
+    - Selecting a tag adds it to `activeTags`; deselecting removes it; selected tags are visually distinguished
+    - Active tag filter combines with the existing text search and sort order (search first, then tag filter, then sort)
+    - Tag filter panel shows a "Clear all" control that resets `activeTags` to `[]`
+    - _Requirements: 28.10, 28.11, 28.12_
+
+  - [ ]* 27.6 Write unit and component tests for tag feature
+    - Unit: tag schema validation accepts valid tags; rejects all-whitespace, commas, >32 chars, and >20 tags; missing `tags` field in legacy file parsed as empty array
+    - Unit: `filteredAndSortedMaps()` with active tags applies AND logic; empty `activeTags` returns all; combined text + tag filter works correctly
+    - Unit: `allTags()` returns sorted unique tags across all summaries
+    - Component (MSW): tag management control adds/removes tags; autocomplete shows existing tags; "+N" badge appears when >5 tags; tag filter filters map cards; clear-all resets filter
+    - _Requirements: 28.3, 28.4, 28.11, 28.12, 28.13, 28.14, 28.15_
+
 - [x] 23. Final checkpoint — all tests pass, Docker build verified
   - Ensure all tests pass, ask the user if questions arise.
 
@@ -510,7 +553,7 @@ All 135 automated tests passed across 14 files, including the actual head bootst
 
 ---
 
-## Requirement 26 Implementation Notes
+**Requirement 26 Implementation Notes**
 
 Task 24 implemented on 2026-10-27: the library offers a labeled search input with a 50ms trailing debounce and a native sort select for newest/oldest edited and title A → Z/Z → A. `mapListStore` owns the query and sort order and derives a filtered, sorted copy of its loaded summaries without mutating the source or requesting more data. Case-insensitive substring search includes unreadable files' filename fallbacks. Missing/invalid timestamps sort last in either date direction; equal values preserve the loaded order. Empty search restores all maps. No matches shows the query as escaped text with Clear search, which also cancels pending input. Controls remain mounted through loading, empty states and results, and use the existing light/dark colors and responsive layout.
 
@@ -518,7 +561,7 @@ Sort changes persist under `maplora:sortOrder`; initialization validates all fou
 
 All 158 automated tests passed across 16 files, including 23 new store and MSW/component cases for filtering, all sort directions, combined operations, immutable source data, timestamp edge cases, persistence initialization, unavailable storage, exact debounce timing, pending-input cancellation, no-results clearing, remounts and in-memory list changes. The existing create-navigation test now waits for navigation before looking for a root label also present on a transient library card. The production build and formatting checks passed. Real Chrome verified 500 and 750 maps, all sort options, persistence after reload, invalid/blocked storage, mobile light/dark controls, no additional list requests and no page errors or map writes. Search updates with 500 maps took 56–67ms, including the debounce, below the 100ms target. Docker Compose verification passed the image build, assets, SPA routing, API and persisted JSON across restart/recreation, duplication, reordering, branch moves, custom styles, trash and restoration.
 
-## Requirement 27 Implementation Notes
+**Requirement 27 Implementation Notes**
 
 Task 25 implemented on 2026-10-27: Copy as Markdown in the editor toolbar converts the current `editorStore.map` into plain Markdown and writes it with the browser clipboard API. The pure converter uses iterative depth-first traversal, emits the root label as a level-one heading and descendants as bullets with two spaces per additional depth, preserves sibling order and special characters verbatim, and includes all collapsed descendants. It does not mutate the map, make requests or use the map title in place of the root label. Unconfirmed draft nodes and text still being typed are not part of the stored map state and are not exported.
 
@@ -526,7 +569,7 @@ The button remains enabled during selection changes, editing, drafts, saving and
 
 All 176 automated tests passed across 18 files, including 18 new conversion, clipboard and toolbar-state cases. The production build and formatting checks passed. Real Chrome verified actual clipboard text, collapsed descendants, automatic confirmation dismissal, editing and draft focus without saves, keyboard activation, dark theme, 320px/390px toolbar layout, unavailable/rejected clipboard errors and no page errors or map writes. Browser tests used isolated temporary map data. Docker Compose verification passed the image build, static assets, SPA routing, API, map operations and persisted JSON across restart/recreation, trash and restoration.
 
-## Task 26 Implementation Notes
+**Task 26 Implementation Notes**
 
 Task 26 implemented on 2026-10-27: six CSS custom properties per theme define distinct backgrounds for depths 0–5, with deeper nodes cycling by depth modulo six. Light mode uses muted green, blue, rose, sand, teal and lavender; dark mode uses corresponding darker tints. The canvas computes logical depths once per in-memory tree change and passes them to nodes and node options. Both sides use the same palette, and collapse state does not change depth. Drafts receive their parent's depth plus one; moving a branch recomputes the whole subtree's default colors without writing color values to the map.
 
@@ -534,7 +577,7 @@ Task 26 implemented on 2026-10-27: six CSS custom properties per theme define di
 
 All 189 automated tests passed across 19 files, including 13 new cases for depth slots, cycling, custom backgrounds, resets, logical depths on both sides, collapse/expansion, drafts and branch moves. Existing style preview/reset assertions now expect the depth fallback. The production build and formatting checks passed. Real Chrome verified depths 0–8, six distinct colors and text contrast of at least 4.5:1 in both themes, custom background precedence, individual reset/full restore/reload, native picker and preview synchronization, collapse/expansion and branch-move recoloring. A 500-node map rendered with all 499 connectors in 286ms, without overlapping labels or page errors. Palette/theme changes did not write map data. Browser checks used isolated temporary map data. Docker Compose verification passed the image build, static assets, SPA routing, API, custom styles and map operations, bind-mounted JSON across restart/recreation, trash and restoration.
 
-## Task 20 Implementation Notes
+**Task 20 Implementation Notes**
 
 Task 20 implemented on 2026-10-27: Export JSON in the editor downloads the current in-memory map through a validated JSON Blob, using a portable title-derived filename. It includes the complete tree, collapsed descendants, IDs, timestamps, revision and styles without server paths or configuration. Pointer activation retains editing focus, so unconfirmed drafts and text still being typed are excluded without triggering a save. Downloads clean up temporary links and object URLs; failures show a retryable error toast. Native keyboard activation and narrow-screen icon controls remain available.
 
@@ -544,7 +587,7 @@ The returned summary updates the library without refetching or navigation. Succe
 
 All 231 automated tests passed across 22 files, including 42 new transfer and import cases covering live HTTP, full v1 data preservation, partial conflicts across active/trash files, concurrent imports, corrupt existing files, rejected JSON/schema/versions, atomic failure cleanup, Blob contents and filenames, URL cleanup, FileReader errors, keyboard/focus behavior, pending-search cancellation, in-flight guards, initial-fetch ordering and UI error/retry. Production build and formatting checks passed. Real Chrome verified actual downloads and the native file chooser, full hidden subtree/styles, exports during editing/drafts without map writes, keyboard activation, dark theme, responsive controls from 320–850px, fresh imported IDs, unchanged source data, library updates without refetching, validation dialogs, export failure/retry and server failure/retry, with no page exceptions. Browser checks used isolated temporary map data. Docker Compose verification passed the image build, static assets, SPA routing, API, JSON import with conflict replacement, imported and existing bind-mounted data after restart/recreation, map operations, trash and restoration. Tasks 21–22 remain deferred.
 
-## Task 21 Implementation Notes
+**Task 21 Implementation Notes**
 
 Task 21 implemented on 2026-10-27: Export PNG in the editor toolbar validates and snapshots the current in-memory map, expands every node in an independent copy, measures all labels with the existing node CSS, and reruns the bilateral layout. A separate offscreen React Flow instance renders the complete tree using static labels, the existing depth palette and custom styles, and the shared SVG connector renderer. Export waits for node/handle initialization and all expected nodes and connector paths before calling `html-to-image.toPng` with `pixelRatio: 2`, a white background and automatic downscaling disabled. The image excludes attribution, handles, interaction paths, collapse buttons, editor controls and selection outlines. Title-derived PNG filenames use the same sanitization as JSON exports.
 
@@ -602,7 +645,11 @@ All 258 automated tests passed across 25 files, including 27 new cases for indep
     { "id": 29, "tasks": ["25.2", "25.3"] },
     { "id": 30, "tasks": ["25.4"] },
     { "id": 31, "tasks": ["26.1"] },
-    { "id": 32, "tasks": ["26.2", "26.3"] }
+    { "id": 32, "tasks": ["26.2", "26.3"] },
+    { "id": 33, "tasks": ["27.1"] },
+    { "id": 34, "tasks": ["27.2", "27.3"] },
+    { "id": 35, "tasks": ["27.4", "27.5"] },
+    { "id": 36, "tasks": ["27.6"] }
   ]
 }
 ```
