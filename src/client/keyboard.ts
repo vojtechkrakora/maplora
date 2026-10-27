@@ -14,11 +14,21 @@ export function handleEditorKey(
       "input,textarea,select,[contenteditable=true],[role=dialog]",
     ) ||
     event.ctrlKey ||
-    event.metaKey ||
-    event.altKey
+    event.metaKey
   )
     return;
   const { map, selectedNodeId: id } = store;
+  if (event.altKey) {
+    if (map && id && ["ArrowUp", "ArrowDown"].includes(event.key)) {
+      event.preventDefault();
+      const parent = findParent(map.root, id);
+      if (parent) {
+        const index = parent.children.findIndex((node) => node.id === id);
+        void store.reorderNode(id, index + (event.key === "ArrowUp" ? -1 : 1));
+      }
+    }
+    return;
+  }
   if (event.key === "?") {
     event.preventDefault();
     showHelp();

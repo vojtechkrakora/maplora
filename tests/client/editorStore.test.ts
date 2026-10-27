@@ -8,8 +8,8 @@ import { ApiError } from "../../src/client/api";
 import { allNodes, findNode } from "../../src/shared/tree";
 import { fixture, mapArb, textArb } from "../fixtures";
 import type { MapFile } from "../../src/shared/schema";
-function setup() {
-  let disk = fixture();
+function setup(initial = fixture()) {
+  let disk = structuredClone(initial);
   const service = {
     fetchMap: vi.fn(async () => structuredClone(disk)),
     saveMap: vi.fn(async (m: MapFile) => {
@@ -48,6 +48,149 @@ it("persists generated add/edit/collapse/delete operations with unique IDs", asy
     }),
     { numRuns: 100 },
   );
+});
+function orderedMap(count = 3) {
+  const map = fixture();
+  map.root.children = Array.from({ length: count }, (_, index) => ({
+    id: `12345678-1234-4234-8234-${String(index + 20).padStart(12, "0")}`,
+    text: `Branch ${index}`,
+    collapsed: index % 2 === 0,
+    style: { backgroundColor: "#abcdef" },
+    children: [
+      {
+        id: `12345678-1234-4234-8234-${String(index + 100).padStart(12, "0")}`,
+        text: `Leaf ${index}`,
+        collapsed: false,
+        children: [],
+      },
+    ],
+  }));
+  return map;
+}
+it("persists generated sibling reorders with intact subtrees, selection and history", async () => {
+  await fc.assert(
+    fc.asyncProperty(
+      fc.integer({ min: 2, max: 8 }),
+      fc.nat(),
+      fc.nat(),
+      async (count, from, to) => {
+        from %= count;
+        to %= count;
+        const original = orderedMap(count);
+        const { store, service, disk } = setup(original);
+        await store.getState().loadMap(original.id);
+        const id = original.root.children[from].id;
+        store.getState().select(id);
+        const expected = structuredClone(original.root.children);
+        const [moved] = expected.splice(from, 1);
+        expected.splice(to, 0, moved);
+        expect(await store.getState().reorderNode(id, to)).toBe(from !== to);
+        expect(disk().root.children).toEqual(expected);
+        expect(store.getState().selectedNodeId).toBe(id);
+        expect(service.saveMap).toHaveBeenCalledTimes(from === to ? 0 : 1);
+        expect(store.getState().undoStack).toEqual(
+          from === to ? [] : [original],
+        );
+      },
+    ),
+    { numRuns: 100 },
+  );
+});
+it("ignores root, missing-node, invalid-index and editing-time reorders without saving", async () => {
+  const original = orderedMap();
+  const { store, service } = setup(original);
+  await store.getState().loadMap(original.id);
+  const id = original.root.children[0].id;
+  for (const index of [-1, 3, 1.5, NaN, Infinity, 0])
+    expect(await store.getState().reorderNode(id, index)).toBe(false);
+  expect(await store.getState().reorderNode(original.root.id, 1)).toBe(false);
+  expect(await store.getState().reorderNode("missing", 1)).toBe(false);
+  store.getState().beginEdit(id);
+  expect(await store.getState().reorderNode(id, 1)).toBe(false);
+  store.getState().cancelEdit();
+  store.getState().addNode(original.root.id);
+  expect(await store.getState().reorderNode(id, 1)).toBe(false);
+  expect(service.saveMap).not.toHaveBeenCalled();
+});
+it("rolls back failed reorders and retries while retaining the moved branch selection", async () => {
+  const original = orderedMap();
+  const { store, service, disk } = setup(original);
+  await store.getState().loadMap(original.id);
+  const id = original.root.children[2].id;
+  store.getState().select(id);
+  service.saveMap.mockRejectedValueOnce(new Error("Disk full"));
+  expect(await store.getState().reorderNode(id, 0)).toBe(false);
+  expect(store.getState().map!.root).toEqual(original.root);
+  expect(store.getState().selectedNodeId).toBe(id);
+  expect(store.getState().error).toContain("Disk full");
+  expect(await store.getState().saveMap()).toBe(true);
+  expect(disk().root.children.map((node) => node.id)).toEqual([
+    id,
+    original.root.children[0].id,
+    original.root.children[1].id,
+  ]);
+});
+it("rebases a reorder by sibling ID while preserving remote additions and edits", async () => {
+  const original = orderedMap();
+  const { store, service, disk } = setup(original);
+  await store.getState().loadMap(original.id);
+  const latest = orderedMap(4);
+  latest.revision = 5;
+  const remote = latest.root.children.pop()!;
+  latest.root.children.unshift(remote);
+  latest.root.children[2].text = "Remote edit";
+  service.saveMap.mockRejectedValueOnce(
+    new ApiError(409, "STALE_WRITE", "Conflict"),
+  );
+  service.fetchMap.mockResolvedValueOnce(latest);
+  const id = original.root.children[2].id;
+  expect(await store.getState().reorderNode(id, 0)).toBe(true);
+  expect(disk().root.children.map((node) => node.id)).toEqual([
+    remote.id,
+    id,
+    original.root.children[0].id,
+    original.root.children[1].id,
+  ]);
+  expect(disk().root.children[3].text).toBe("Remote edit");
+});
+it("rejects replay when the branch has changed parent or its anchor was removed", async () => {
+  const original = orderedMap();
+  const id = original.root.children[2].id;
+  const operation = {
+    kind: "reorder" as const,
+    id,
+    parentId: original.root.id,
+    beforeId: original.root.children[0].id,
+  };
+  const moved = structuredClone(original);
+  moved.root.children[0].children.push(moved.root.children.pop()!);
+  expect(() => applyOperation(moved, operation)).toThrow("original parent");
+  const removed = structuredClone(original);
+  removed.root.children.shift();
+  expect(() => applyOperation(removed, operation)).toThrow("target sibling");
+  expect(original.root.children).toHaveLength(3);
+});
+it("serializes rapid sibling reorders without overwriting the newer order", async () => {
+  const original = orderedMap();
+  const { store, service, disk } = setup(original);
+  await store.getState().loadMap(original.id);
+  let release!: (map: MapFile) => void;
+  service.saveMap.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        release = resolve;
+      }),
+  );
+  const first = store.getState().reorderNode(original.root.children[0].id, 2);
+  const firstSnapshot = structuredClone(store.getState().map!);
+  const second = store.getState().reorderNode(original.root.children[1].id, 2);
+  release({ ...firstSnapshot, revision: 2 });
+  await Promise.all([first, second]);
+  expect(disk().root.children.map((node) => node.text)).toEqual([
+    "Branch 2",
+    "Branch 0",
+    "Branch 1",
+  ]);
 });
 it("rejects generated whitespace edits without sending a save", async () => {
   await fc.assert(

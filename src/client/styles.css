@@ -529,6 +529,47 @@ label {
   outline: 2px solid #77a181;
   outline-offset: 4px;
 }
+.react-flow__node.dragging {
+  transition: none;
+}
+.react-flow__node.dragging .mind-node {
+  opacity: 0.7;
+}
+.reorder-before .mind-node::before,
+.reorder-after .mind-node::after {
+  content: "";
+  position: absolute;
+  left: -8px;
+  right: -8px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--accent);
+  pointer-events: none;
+}
+.reorder-before .mind-node::before {
+  top: -10px;
+}
+.reorder-after .mind-node::after {
+  bottom: -10px;
+}
+.reorder-hint {
+  position: absolute;
+  top: 100px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 6;
+  padding: 10px 16px;
+  max-width: 90vw;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  font-size: 12px;
+  pointer-events: none;
+}
+.reorder-hint span {
+  color: var(--muted);
+}
 .react-flow__edge-path {
   transition: d 200ms ease-in-out;
 }

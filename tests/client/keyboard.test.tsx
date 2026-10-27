@@ -23,6 +23,7 @@ function setup(selected = "child") {
     toggleCollapse: vi.fn(),
     cancelEdit: vi.fn(),
     select: vi.fn(),
+    reorderNode: vi.fn(),
   } as unknown as EditorState;
   const remove = vi.fn(),
     help = vi.fn();
@@ -49,6 +50,8 @@ it.each([
   ["{ArrowLeft}", "select", [fixture().root.id]],
   ["{ArrowRight}", "select", ["grandchild"]],
   ["{Escape}", "cancelEdit", []],
+  ["{Alt>}{ArrowUp}{/Alt}", "reorderNode", ["child", 0]],
+  ["{Alt>}{ArrowDown}{/Alt}", "reorderNode", ["child", 2]],
 ])("routes %s to the expected node action", async (key, action, args) => {
   const { store, user } = setup();
   await user.keyboard(key as string);
@@ -64,6 +67,8 @@ it("does not add a sibling or delete the root through its handler", async () => 
   const { user, store } = setup(fixture().root.id);
   await user.keyboard("{Enter}");
   expect(store.addNode).not.toHaveBeenCalled();
+  await user.keyboard("{Alt>}{ArrowUp}{ArrowDown}{/Alt}");
+  expect(store.reorderNode).not.toHaveBeenCalled();
 });
 it("ignores node shortcuts while typing", async () => {
   const { store, user, remove } = setup();
@@ -75,4 +80,6 @@ it("ignores node shortcuts while typing", async () => {
   expect(store.select).not.toHaveBeenCalled();
   expect(store.beginEdit).not.toHaveBeenCalled();
   expect(remove).not.toHaveBeenCalled();
+  await user.keyboard("{Alt>}{ArrowUp}{ArrowDown}{/Alt}");
+  expect(store.reorderNode).not.toHaveBeenCalled();
 });

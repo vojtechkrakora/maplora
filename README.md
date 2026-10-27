@@ -39,6 +39,8 @@ The application has no authentication. Deploy it within a trusted private networ
 - Changes save automatically. The toolbar reports saving, saved, and failed states. Failed mutations roll back and offer **Retry change**.
 - A new node is a local draft until you confirm its text. Escape or an empty draft cancels it without a write.
 - Branches arrange themselves on both sides of the root. Collapse controls hide descendants while preserving their individual collapse states.
+- Reorder a selected sibling with **Alt+Up / Alt+Down**, or drag it onto the upper/lower half of another sibling to insert before/after it. A line marks the insertion point. Escape or a drop outside a valid sibling cancels without saving. A failed save restores the previous order and offers retry.
+- Sibling reordering preserves each branch's contents and parent. Reordering root children can switch their side because the layout alternates right and left.
 - Drag the canvas to pan. Scroll to zoom around the cursor. Zoom buttons adjust by 10 percentage points, bounded at 10%–200%; **Fit to screen** adjusts the viewport.
 
 | Key | Action |
@@ -49,6 +51,7 @@ The application has no authentication. Deploy it within a trusted private networ
 | Delete / Backspace | Delete branch; confirm if it contains descendants |
 | Space | Collapse / expand (except the root) |
 | Up / Down | Previous / next sibling |
+| Alt + Up / Down | Move selected sibling earlier / later |
 | Left / Right | Parent / first visible child |
 | Escape | Cancel editing or close a dialog |
 | ? | Shortcut reference |
@@ -89,9 +92,9 @@ The Compose verification requires a working local Docker daemon. It uses a separ
 
 ## Scope and limitations
 
-This implements MVP tasks 1–14, post-MVP task 15 (duplicate maps), and the Docker verification checkpoint in the Kiro plan. Tasks and test coverage are tracked in `.kiro/specs/maplora/tasks.md`. The bounded snapshot infrastructure requested by task 9.1 is present; undo/redo controls and shortcuts are intentionally deferred with task 22.
+This implements MVP tasks 1–14, post-MVP tasks 15–16 (duplicate maps and reorder siblings), and the Docker verification checkpoint in the Kiro plan. Tasks and test coverage are tracked in `.kiro/specs/maplora/tasks.md`. The bounded snapshot infrastructure requested by task 9.1 is present; undo/redo controls and shortcuts are intentionally deferred with task 22.
 
-Drag-to-reorder/reparent, custom styles, manual theme switching, import/export, PNG export, and undo/redo remain deferred to tasks 16–22. The UI follows the system color scheme. Schema v1 is the only supported version; a migration registry is ready for future versions, but no fictional older format is accepted.
+Moving branches to a different parent, custom styles, manual theme switching, import/export, PNG export, and undo/redo remain deferred to tasks 17–22. The UI follows the system color scheme. Schema v1 is the only supported version; a migration registry is ready for future versions, but no fictional older format is accepted.
 
 Maps above 500 nodes show a performance warning. Measurements and layout run synchronously as specified by the approved `useMemo` implementation; unusually large maps can exceed the stated responsiveness targets. Multi-tab edits retry once; an operation whose target was deleted in another tab fails visibly rather than recreating it. Multi-process writers and external edits during use are unsupported.
 

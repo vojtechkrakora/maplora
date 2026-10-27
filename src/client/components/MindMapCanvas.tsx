@@ -9,12 +9,21 @@ import {
   useReactFlow,
   type EdgeProps,
   type Node,
+  type NodeChange,
   type NodeProps,
+  type OnNodeDrag,
 } from "@xyflow/react";
 import type { MapFile, MapNode } from "../../shared/schema.js";
 import { allNodes, findParent } from "../../shared/tree.js";
 import { useEditorStore } from "../stores/editorStore";
-import { clampZoom, computeLayout, DEFAULT_SIZE, type Size } from "../layout";
+import {
+  clampZoom,
+  computeLayout,
+  DEFAULT_SIZE,
+  type Point,
+  type Size,
+} from "../layout";
+import { siblingDropTarget, type SiblingDropTarget } from "../reorder";
 import { Link } from "react-router-dom";
 import { handleEditorKey } from "../keyboard";
 import { Dialog } from "./Dialog";
@@ -146,11 +155,19 @@ export function MindMapEdge(props: EdgeProps) {
 }
 const nodeTypes = { mindmap: MindMapNode },
   edgeTypes = { mindmap: MindMapEdge };
+interface ReorderDrag {
+  id: string;
+  source: MapFile;
+  position: Point;
+  target: SiblingDropTarget | null;
+}
 export function MindMapCanvas() {
   const s = useEditorStore(),
     flow = useReactFlow(),
     [help, setHelp] = useState(false),
-    [sizes, setSizes] = useState(new Map<string, Size>());
+    [sizes, setSizes] = useState(new Map<string, Size>()),
+    [drag, setDrag] = useState<ReorderDrag | null>(null);
+  const dragRef = useRef<ReorderDrag | null>(null);
   const measurement = useRef<HTMLDivElement>(null),
     canvas = useRef<HTMLDivElement>(null);
   const map = useMemo(() => {
@@ -199,6 +216,129 @@ export function MindMapCanvas() {
     () => (map ? computeLayout(map, sizes) : new Map()),
     [map, sizes],
   );
+  function cancelDrag() {
+    dragRef.current = null;
+    setDrag(null);
+  }
+  useEffect(() => {
+    const cancel = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && dragRef.current) {
+        event.preventDefault();
+        event.stopPropagation();
+        cancelDrag();
+      }
+    };
+    const interrupted = () => {
+      if (dragRef.current) cancelDrag();
+    };
+    window.addEventListener("keydown", cancel, true);
+    window.addEventListener("blur", interrupted);
+    window.addEventListener("touchcancel", interrupted);
+    return () => {
+      window.removeEventListener("keydown", cancel, true);
+      window.removeEventListener("blur", interrupted);
+      window.removeEventListener("touchcancel", interrupted);
+    };
+  }, []);
+  useEffect(() => {
+    if (
+      dragRef.current &&
+      (s.map !== dragRef.current.source || s.editingNodeId)
+    )
+      cancelDrag();
+  }, [s.map, s.editingNodeId]);
+  function dropTarget(event: MouseEvent | TouchEvent, current: ReorderDrag) {
+    const pointer =
+      "changedTouches" in event
+        ? (event.changedTouches[0] ?? event.touches[0])
+        : event;
+    const bounds = canvas.current?.getBoundingClientRect();
+    if (
+      !pointer ||
+      !bounds ||
+      event.type === "touchcancel" ||
+      pointer.clientX < bounds.left ||
+      pointer.clientX > bounds.right ||
+      pointer.clientY < bounds.top ||
+      pointer.clientY > bounds.bottom
+    )
+      return null;
+    const element = document.elementFromPoint?.(
+      pointer.clientX,
+      pointer.clientY,
+    );
+    if (
+      element?.closest(".editor-toolbar,.node-tools,.zoom-tools,[role=dialog]")
+    )
+      return null;
+    return siblingDropTarget(
+      current.source,
+      current.id,
+      flow.screenToFlowPosition({ x: pointer.clientX, y: pointer.clientY }),
+      positions,
+      sizes,
+    );
+  }
+  const startDrag: OnNodeDrag<MindNode> = (_event, node) => {
+    const source = useEditorStore.getState().map;
+    const parent = source && findParent(source.root, node.id);
+    if (
+      !source ||
+      !parent ||
+      parent.children.length < 2 ||
+      s.editingNodeId ||
+      s.draft
+    )
+      return;
+    const current = {
+      id: node.id,
+      source,
+      position: node.position,
+      target: null,
+    };
+    dragRef.current = current;
+    setDrag(current);
+    s.select(node.id);
+    canvas.current?.focus();
+  };
+  const moveDrag: OnNodeDrag<MindNode> = (event, node) => {
+    const current = dragRef.current;
+    if (!current || current.id !== node.id) return;
+    const next = {
+      ...current,
+      position: node.position,
+      target: dropTarget(event, current),
+    };
+    dragRef.current = next;
+    setDrag(next);
+  };
+  const stopDrag: OnNodeDrag<MindNode> = (event, node) => {
+    const current = dragRef.current;
+    cancelDrag();
+    if (
+      !current ||
+      current.id !== node.id ||
+      useEditorStore.getState().map !== current.source
+    )
+      return;
+    const target = dropTarget(event, current);
+    if (target) void s.reorderNode(node.id, target.index);
+  };
+  const changeNodes = (changes: NodeChange<MindNode>[]) => {
+    const current = dragRef.current;
+    if (!current) return;
+    for (const change of changes) {
+      if (
+        change.type === "position" &&
+        change.id === current.id &&
+        change.position
+      ) {
+        const next = { ...current, position: change.position };
+        dragRef.current = next;
+        setDrag(next);
+      }
+    }
+  };
   const remove = (id: string) => {
     const node = s.map && allNodes(s.map.root).find((n) => n.id === id);
     if (!node || node === s.map!.root) return;
@@ -215,7 +355,26 @@ export function MindMapCanvas() {
     id: node.id,
     type: "mindmap",
     measured: sizes.get(node.id) ?? DEFAULT_SIZE,
-    position: positions.get(node.id) ?? { x: 0, y: 0 },
+    position:
+      drag?.id === node.id
+        ? drag.position
+        : (positions.get(node.id) ?? { x: 0, y: 0 }),
+    draggable:
+      node !== map!.root &&
+      (findParent(map!.root, node.id)?.children.length ?? 0) > 1 &&
+      !s.editingNodeId &&
+      !s.draft &&
+      s.saving !== "saving",
+    dragging: drag?.id === node.id,
+    className:
+      drag?.target?.siblingId === node.id
+        ? `reorder-${drag.target.placement}`
+        : undefined,
+    // React Flow remeasures handle bounds when a reorder switches tree sides.
+    sourcePosition:
+      (positions.get(node.id)?.x ?? 0) < 0 ? Position.Left : Position.Right,
+    targetPosition:
+      (positions.get(node.id)?.x ?? 0) < 0 ? Position.Right : Position.Left,
     selected: s.selectedNodeId === node.id,
     data: {
       node,
@@ -284,6 +443,7 @@ export function MindMapCanvas() {
       tabIndex={0}
       aria-label="Mind map editor"
       onKeyDown={(e) => {
+        if (dragRef.current) return;
         if (!(e.target as HTMLElement).closest("button"))
           handleEditorKey(e.nativeEvent, s, remove, () => setHelp(true));
       }}
@@ -359,7 +519,14 @@ export function MindMapCanvas() {
         maxZoom={2}
         fitView
         fitViewOptions={{ padding: 0.2, minZoom: 0.1, maxZoom: 1 }}
-        nodesDraggable={false}
+        nodesDraggable
+        onNodesChange={changeNodes}
+        onNodeDragStart={startDrag}
+        onNodeDrag={moveDrag}
+        onNodeDragStop={stopDrag}
+        selectNodesOnDrag={false}
+        multiSelectionKeyCode={null}
+        disableKeyboardA11y
         nodesConnectable={false}
         edgesReconnectable={false}
         deleteKeyCode={null}
@@ -378,6 +545,14 @@ export function MindMapCanvas() {
       >
         <Background gap={24} size={1} color="var(--grid)" />
       </ReactFlow>
+      {drag && (
+        <div className="reorder-hint" role="status">
+          {drag.target
+            ? `Drop ${drag.target.placement} “${visible.find((node) => node.id === drag.target!.siblingId)?.text}”`
+            : "Drag to the top or bottom of a sibling to reorder"}
+          <span> · Escape to cancel</span>
+        </div>
+      )}
       <div className="node-tools" aria-label="Node actions">
         <span className="tools-label">
           {selected ? "SELECTED NODE" : "SELECT A NODE"}
@@ -449,6 +624,7 @@ export function MindMapCanvas() {
               ["Delete / Backspace", "Delete branch"],
               ["Space", "Collapse or expand"],
               ["↑ / ↓", "Previous / next sibling"],
+              ["Alt + ↑ / ↓", "Move sibling up / down"],
               ["← / →", "Parent / first child"],
               ["Escape", "Cancel edit or close dialog"],
               ["?", "Show shortcuts"],

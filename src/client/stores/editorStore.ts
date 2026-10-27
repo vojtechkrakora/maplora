@@ -11,7 +11,8 @@ export type NodeOperation =
   | { kind: "add"; parentId: string; node: MapNode; afterId?: string }
   | { kind: "edit"; id: string; text: string }
   | { kind: "delete"; id: string }
-  | { kind: "collapse"; id: string; collapsed: boolean };
+  | { kind: "collapse"; id: string; collapsed: boolean }
+  | { kind: "reorder"; id: string; parentId: string; beforeId: string | null };
 export function applyOperation(source: MapFile, op: NodeOperation): MapFile {
   const map = structuredClone(source);
   if (op.kind === "add") {
@@ -27,6 +28,18 @@ export function applyOperation(source: MapFile, op: NodeOperation): MapFile {
   } else if (op.kind === "delete") {
     const parent = findParent(map.root, op.id);
     if (parent) parent.children = parent.children.filter((n) => n.id !== op.id);
+  } else if (op.kind === "reorder") {
+    const parent = findParent(map.root, op.id);
+    if (!parent || parent.id !== op.parentId)
+      throw new Error("The node is no longer under its original parent.");
+    const index = parent.children.findIndex((node) => node.id === op.id);
+    const [node] = parent.children.splice(index, 1);
+    const target =
+      op.beforeId === null
+        ? parent.children.length
+        : parent.children.findIndex((child) => child.id === op.beforeId);
+    if (target < 0) throw new Error("The target sibling no longer exists.");
+    parent.children.splice(target, 0, node);
   } else {
     const node = findNode(map.root, op.id);
     if (!node) throw new Error("The node no longer exists.");
@@ -64,6 +77,7 @@ export interface EditorState {
   editNodeText(id: string, text: string): Promise<boolean>;
   deleteNode(id: string): Promise<boolean>;
   toggleCollapse(id: string): Promise<boolean>;
+  reorderNode(id: string, newIndex: number): Promise<boolean>;
 }
 export function createEditorStore(
   service: Pick<typeof api, "fetchMap" | "saveMap"> = api,
@@ -289,6 +303,24 @@ export function createEditorStore(
           node = map && findNode(map.root, id);
         if (!node || id === map!.root.id || !node.children.length) return false;
         return enqueue({ kind: "collapse", id, collapsed: !node.collapsed });
+      },
+      async reorderNode(id, newIndex) {
+        const { map, draft, editingNodeId } = get();
+        if (!map || draft || editingNodeId || !Number.isInteger(newIndex))
+          return false;
+        const parent = findParent(map.root, id);
+        if (!parent || newIndex < 0 || newIndex >= parent.children.length)
+          return false;
+        const oldIndex = parent.children.findIndex((node) => node.id === id);
+        if (oldIndex === newIndex) return false;
+        // Use a stable sibling anchor so a 409 retry preserves remote additions.
+        const siblings = parent.children.filter((node) => node.id !== id);
+        return enqueue({
+          kind: "reorder",
+          id,
+          parentId: parent.id,
+          beforeId: siblings[newIndex]?.id ?? null,
+        });
       },
     };
   });

@@ -66,14 +66,29 @@ try {
     title: "Compose persistence verification",
   });
   let map = await request(`/api/maps/${summary.id}`);
-  map.root.children.push({
-    id: "12345678-1234-4234-8234-123456789099",
-    text: "Survives recreation",
-    collapsed: false,
-    children: [],
-  });
+  map.root.children.push(
+    {
+      id: "12345678-1234-4234-8234-123456789099",
+      text: "Survives recreation",
+      collapsed: false,
+      children: [],
+    },
+    {
+      id: "12345678-1234-4234-8234-123456789098",
+      text: "Reordered sibling",
+      collapsed: false,
+      children: [],
+    },
+  );
   map = await request(`/api/maps/${summary.id}`, "PUT", map);
   assert.equal(map.revision, 2);
+  map.root.children.reverse();
+  map = await request(`/api/maps/${summary.id}`, "PUT", map);
+  assert.equal(map.revision, 3);
+  assert.deepEqual(
+    map.root.children.map((node) => node.text),
+    ["Reordered sibling", "Survives recreation"],
+  );
   assert.deepEqual(
     JSON.parse(await readFile(path.join(directory, `${map.id}.json`), "utf8")),
     map,
@@ -103,7 +118,7 @@ try {
   await request(`/api/trash/${map.id}/restore`, "POST");
   assert.deepEqual(await request(`/api/maps/${map.id}`), map);
   console.log(
-    "PASS: Compose build, static assets, SPA fallback, API, duplication, bind-mounted JSON, restart, recreation, trash and restoration.",
+    "PASS: Compose build, static assets, SPA fallback, API, duplication, sibling order, bind-mounted JSON, restart, recreation, trash and restoration.",
   );
 } finally {
   await compose("down", "--remove-orphans");

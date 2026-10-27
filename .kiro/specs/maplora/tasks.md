@@ -289,13 +289,13 @@ MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Po
     - Assert new Map ID is different; assert all Node IDs differ from source; assert title ends with " (Copy)"; assert `revision=1` on new file
     - _Requirements: 5.2, 5.3_
 
-- [ ] 16. Rearrange sibling nodes (Post-MVP)
-  - [ ]* 16.1 Implement `reorderNode` in `editorStore` and keyboard shortcuts
+- [x] 16. Rearrange sibling nodes (Post-MVP)
+  - [x]* 16.1 Implement `reorderNode` in `editorStore` and keyboard shortcuts
     - `reorderNode(nodeId, newIndex)`: changes sibling order under same parent; pushes snapshot; persists
     - Keyboard: `Alt+ArrowUp` / `Alt+ArrowDown` on selected node reorders among siblings
     - _Requirements: 10.1, 10.3, 10.4, 10.5_
 
-  - [ ]* 16.2 Implement drag-to-reorder sibling UI in `MindMapCanvas`
+  - [x]* 16.2 Implement drag-to-reorder sibling UI in `MindMapCanvas`
     - Enable React Flow node drag within same parent; show position indicator during drag
     - On drop call `reorderNode()`; on Escape restore original order
     - _Requirements: 10.1, 10.2, 10.3, 10.4_
@@ -400,7 +400,11 @@ Verification completed on 2026-10-27: 60 Vitest tests passed across 9 files, wit
 
 Task 15 completed on 2026-10-27: map cards offer Duplicate, which calls `POST /api/maps/:mapId/duplicate` and inserts the returned card without a list reload or navigation. The file store creates a deep copy through the existing atomic write path, replaces every map/node ID, resets revision to 1, and sets fresh timestamps. Branch order, labels, collapse state and optional style fields are preserved. The source file remains unchanged. To reconcile the required " (Copy)" suffix with the schema's 100-character title limit, the source title is shortened only as needed, without splitting a surrogate pair.
 
-All 66 tests passed across 9 files, including six new duplication tests covering live HTTP, independent nested copies, title boundaries, invalid sources, write-failure cleanup, UI failure/retry and prevention of repeated in-flight requests. The production build passed. Docker Compose verification passed duplication, persisted JSON checks, restart/recreation, static assets, SPA routing, trash and restoration. Tasks 16–22 remain deferred.
+All 66 tests passed across 9 files, including six new duplication tests covering live HTTP, independent nested copies, title boundaries, invalid sources, write-failure cleanup, UI failure/retry and prevention of repeated in-flight requests. The production build passed. Docker Compose verification passed duplication, persisted JSON checks, restart/recreation, static assets, SPA routing, trash and restoration.
+
+Task 16 implemented on 2026-10-27: Alt+Up/Down reorders the selected sibling. Dragging onto a sibling's upper/lower half previews insertion before/after it, with a visible marker. The tree remains unchanged until a valid drop; Escape, an invalid/outside drop, window blur or a map change cancels the preview. Root nodes and single children cannot be dragged for reordering. Text editing and in-flight saves disable dragging. Save failures roll back through the existing queue and offer retry. Reorders retain all subtree data and use a stable sibling anchor for stale-revision recovery; changed parents or removed anchors fail visibly. React Flow remeasures connector handles when the bilateral layout switches a branch's side.
+
+All 81 automated tests passed across 10 files, including 100 generated reorder cases and tests for keyboard routing, insertion geometry, preview/cancellation, failure rollback/retry and concurrent saves. Real Chrome checks passed root and nested sibling reordering, both sides of the tree, insertion markers, Escape, invalid/outside drops, reload persistence, failure rollback/retry, editing guards and connector attachment after side changes. A 500-node map with all 499 connectors rendered in 428ms with no measured label overlaps. The production build and Docker Compose verification passed, including sibling order in bind-mounted JSON after restart and recreation, duplication, static assets, SPA routing, trash and restoration. Tasks 17–22 remain deferred.
 
 ---
 
