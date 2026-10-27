@@ -303,7 +303,8 @@ The following requirements are planned enhancements to be implemented after the 
 3. THE Editor SHALL allow the user to set a color for individual branch connector lines by selecting from a color picker that supports at minimum a full hue range.
 4. THE Editor SHALL apply all per-node visual customization settings (background color, text color, and branch line color and style) independently for each node and persist them in the Map File; WHEN a node is deleted, THE Editor SHALL remove its associated customization settings from the Map File.
 5. THE Editor SHALL allow the user to set a line style for individual branch connector lines, where line style is one of: solid, dashed, or dotted, with a line thickness between 1 and 8 pixels inclusive.
-6. WHERE no custom color or style is set for a node or branch, THE Editor SHALL render that element using the default values defined by the active theme, such that all unstyled nodes and branches are visually indistinguishable from each other under the same theme.
+6. WHERE no custom background color is set for a node, THE Editor SHALL render that node's background using a depth-based default color derived from the active theme's color palette, such that all nodes at the same depth level share the same default background color, and nodes at different depth levels are visually distinguishable by their default background color.
+7. WHERE no custom text color, connector color, or connector style is set for a node or branch, THE Editor SHALL render that element using the default values defined by the active theme, such that all unstyled text, connectors, and branches are visually consistent under the same theme.
 
 ---
 
@@ -343,6 +344,7 @@ The following requirements are planned enhancements to be implemented after the 
 5. IF no persisted theme preference exists in localStorage and the operating system color scheme preference is detectable, THEN THE Application SHALL apply the theme that matches the operating system color scheme preference.
 6. IF no persisted theme preference exists in localStorage and the operating system color scheme preference is not detectable, THEN THE Application SHALL apply the light theme by default.
 7. IF localStorage is unavailable, THEN THE Application SHALL apply the theme selected by the user for the current session without persisting it.
+8. THE Application SHALL define a depth-based background color palette for each theme (light and dark) that assigns a distinct default background color to each node depth level from depth 0 (root) through at least depth 5, with deeper levels cycling through the palette; these palette colors SHALL be applied as the default node background per criterion 6 of Requirement 15.
 
 ---
 

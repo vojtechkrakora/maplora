@@ -444,6 +444,29 @@ MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Po
     - Assert error toast appears when `navigator.clipboard.writeText` rejects
     - _Requirements: 27.1, 27.6, 27.7, 27.8_
 
+- [ ] 26. Depth-based node background colors (Post-MVP)
+  - [ ]* 26.1 Define depth-based background color palettes in the theme CSS custom properties
+    - In the existing theme definition (light and dark), add a set of CSS custom properties for depth levels 0 through 5: e.g. `--node-bg-depth-0` through `--node-bg-depth-5` for each theme
+    - Light theme palette: distinct, visually harmonious pastel/muted colors at each depth level
+    - Dark theme palette: distinct, visually legible darker-tinted colors at each depth level
+    - Nodes deeper than depth 5 cycle through the palette using `depth % 6`
+    - The palette values are pure CSS custom properties — no JavaScript logic required for the palette itself
+    - _Requirements: 15.6, 17.8_
+
+  - [ ]* 26.2 Apply depth-based background color to `MindMapNode` when no custom background is set
+    - In `MindMapNode`, compute the node's depth from the map tree (or receive it as a prop passed down from `MindMapCanvas`)
+    - WHERE `node.style?.backgroundColor` is not set, apply `var(--node-bg-depth-{depth % 6})` as the node's background
+    - WHERE `node.style?.backgroundColor` is set, use the stored custom color instead — depth-based default is fully overridden
+    - The "Restore theme defaults" action in the style panel (task 18) removes the stored `backgroundColor`, which causes the depth-based color to reappear automatically
+    - _Requirements: 15.6_
+
+  - [ ]* 26.3 Write unit tests for depth-based color application logic
+    - Test that a node at depth 0 with no `style.backgroundColor` receives `var(--node-bg-depth-0)`
+    - Test that a node at depth 3 with no `style.backgroundColor` receives `var(--node-bg-depth-3)`
+    - Test that a node at depth 6 (beyond palette length) receives `var(--node-bg-depth-0)` (cycles)
+    - Test that a node with `style.backgroundColor` set to any value uses that value and ignores depth-based default
+    - _Requirements: 15.6, 17.8_
+
 - [x] 23. Final checkpoint — all tests pass, Docker build verified
   - Ensure all tests pass, ask the user if questions arise.
 
@@ -549,7 +572,9 @@ All 176 automated tests passed across 18 files, including 18 new conversion, cli
     { "id": 27, "tasks": ["24.4", "24.5"] },
     { "id": 28, "tasks": ["25.1"] },
     { "id": 29, "tasks": ["25.2", "25.3"] },
-    { "id": 30, "tasks": ["25.4"] }
+    { "id": 30, "tasks": ["25.4"] },
+    { "id": 31, "tasks": ["26.1"] },
+    { "id": 32, "tasks": ["26.2", "26.3"] }
   ]
 }
 ```
