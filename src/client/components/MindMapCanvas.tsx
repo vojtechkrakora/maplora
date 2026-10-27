@@ -8,12 +8,13 @@ import {
   ReactFlow,
   useReactFlow,
   type EdgeProps,
+  type Edge,
   type Node,
   type NodeChange,
   type NodeProps,
   type OnNodeDrag,
 } from "@xyflow/react";
-import type { MapFile, MapNode } from "../../shared/schema.js";
+import type { MapFile, MapNode, NodeStyle } from "../../shared/schema.js";
 import { allNodes, findParent } from "../../shared/tree.js";
 import { useEditorStore } from "../stores/editorStore";
 import {
@@ -27,6 +28,8 @@ import { branchDropTarget, type BranchDropTarget } from "../reorder";
 import { Link } from "react-router-dom";
 import { handleEditorKey } from "../keyboard";
 import { Dialog } from "./Dialog";
+import { NodeContextMenu } from "./NodeContextMenu";
+import { connectorAppearance, nodeAppearance } from "../nodeStyle";
 
 type MindNode = Node<
   {
@@ -77,6 +80,7 @@ export function MindMapNode({ data, selected }: NodeProps<MindNode>) {
   return (
     <div
       className={`mind-node ${root ? "root-node" : ""} ${selected ? "is-selected" : ""}`}
+      style={nodeAppearance(node.style)}
       onDoubleClick={() => s.beginEdit(node.id)}
     >
       {root ? (
@@ -143,13 +147,13 @@ export function MindMapNode({ data, selected }: NodeProps<MindNode>) {
     </div>
   );
 }
-export function MindMapEdge(props: EdgeProps) {
+export function MindMapEdge(props: EdgeProps<Edge<{ style?: NodeStyle }>>) {
   const [path] = getBezierPath(props);
   return (
     <BaseEdge
       id={props.id}
       path={path}
-      style={{ stroke: "var(--edge)", strokeWidth: 2 }}
+      style={connectorAppearance(props.data?.style)}
     />
   );
 }
@@ -173,6 +177,10 @@ export function MindMapCanvas() {
   const s = useEditorStore(),
     flow = useReactFlow(),
     [help, setHelp] = useState(false),
+    [styleTarget, setStyleTarget] = useState<{
+      mapId: string;
+      nodeId: string;
+    } | null>(null),
     [sizes, setSizes] = useState(new Map<string, Size>()),
     [drag, setDrag] = useState<BranchDrag | null>(null),
     [invalidDrop, setInvalidDrop] = useState<Extract<
@@ -204,6 +212,16 @@ export function MindMapCanvas() {
   useEffect(() => {
     if (map && !s.editingNodeId) canvas.current?.focus();
   }, [map?.id, s.editingNodeId]);
+  useEffect(() => {
+    if (
+      styleTarget &&
+      (styleTarget.mapId !== s.map?.id ||
+        styleTarget.nodeId !== s.selectedNodeId ||
+        s.editingNodeId ||
+        s.draft)
+    )
+      setStyleTarget(null);
+  }, [styleTarget, s.map?.id, s.selectedNodeId, s.editingNodeId, s.draft]);
   const visible = useMemo(() => (map ? allNodes(map.root, true) : []), [map]);
   const signature = visible
     .map((n) => `${n.id}:${n.text}:${n.children.length}:${n.collapsed}`)
@@ -301,7 +319,7 @@ export function MindMapCanvas() {
     );
     if (
       element?.closest(
-        ".editor-toolbar,.node-tools,.zoom-tools,.canvas-alert,[role=dialog]",
+        ".editor-toolbar,.node-tools,.node-options,.zoom-tools,.canvas-alert,[role=dialog]",
       )
     )
       return null;
@@ -324,6 +342,7 @@ export function MindMapCanvas() {
       target: null,
     };
     dragRef.current = current;
+    setStyleTarget(null);
     setInvalidDrop(null);
     setDrag(current);
     s.select(node.id);
@@ -432,6 +451,7 @@ export function MindMapCanvas() {
         source: parent.id,
         target: n.id,
         type: "mindmap",
+        data: { style: parent.style },
         sourceHandle:
           parent === map!.root
             ? (positions.get(n.id)?.x ?? 0) < 0
@@ -446,7 +466,7 @@ export function MindMapCanvas() {
     const wheel = (event: WheelEvent) => {
       if (
         (event.target as HTMLElement).closest(
-          "input,button,.editor-toolbar,.shortcut-panel",
+          "input,button,select,[role=dialog],.node-options,.editor-toolbar,.shortcut-panel",
         )
       )
         return;
@@ -485,6 +505,7 @@ export function MindMapCanvas() {
       onPointerDownCapture={() => setInvalidDrop(null)}
       onKeyDown={(e) => {
         setInvalidDrop(null);
+        if (e.key === "Escape") setStyleTarget(null);
         if (dragRef.current) return;
         if (!(e.target as HTMLElement).closest("button"))
           handleEditorKey(e.nativeEvent, s, remove, () => setHelp(true));
@@ -593,11 +614,23 @@ export function MindMapCanvas() {
         selectionOnDrag={false}
         onNodeClick={(event, node) => {
           s.select(node.id);
-          if (!(event.target as HTMLElement).closest("input,button"))
+          if (!(event.target as HTMLElement).closest("input,button")) {
+            if (!s.editingNodeId && !s.draft && !dragRef.current)
+              setStyleTarget({ mapId: map.id, nodeId: node.id });
             canvas.current?.focus();
+          }
         }}
-        onPaneClick={() => canvas.current?.focus()}
+        onPaneClick={() => {
+          setStyleTarget(null);
+          canvas.current?.focus();
+        }}
         onNodeDoubleClick={(_, node) => s.beginEdit(node.id)}
+        onNodeContextMenu={(event, node) => {
+          event.preventDefault();
+          if (s.editingNodeId || s.draft || dragRef.current) return;
+          s.select(node.id);
+          setStyleTarget({ mapId: map.id, nodeId: node.id });
+        }}
       >
         <Background gap={24} size={1} color="var(--grid)" />
       </ReactFlow>
@@ -640,6 +673,21 @@ export function MindMapCanvas() {
           Delete <kbd>⌫</kbd>
         </button>
       </div>
+      {styleTarget?.mapId === map.id &&
+        selected &&
+        selected.id === styleTarget.nodeId &&
+        !s.editingNodeId &&
+        !s.draft && (
+          <NodeContextMenu
+            key={`${map.id}:${selected.id}`}
+            node={selected}
+            root={selected === map.root}
+            onClose={() => {
+              setStyleTarget(null);
+              canvas.current?.focus();
+            }}
+          />
+        )}
       <div className="zoom-tools">
         <button
           aria-label="Zoom out"

@@ -3,8 +3,10 @@ import * as api from "../api";
 import { newNodeId } from "../id";
 import {
   NodeTextSchema,
+  NodeStyleSchema,
   type MapFile,
   type MapNode,
+  type NodeStyle,
 } from "../../shared/schema.js";
 import { branchMoveError, findNode, findParent } from "../../shared/tree.js";
 export type NodeOperation =
@@ -12,6 +14,7 @@ export type NodeOperation =
   | { kind: "edit"; id: string; text: string }
   | { kind: "delete"; id: string }
   | { kind: "collapse"; id: string; collapsed: boolean }
+  | { kind: "style"; id: string; style: Partial<NodeStyle> }
   | { kind: "reorder"; id: string; parentId: string; beforeId: string | null }
   | {
       kind: "move";
@@ -71,6 +74,13 @@ export function applyOperation(source: MapFile, op: NodeOperation): MapFile {
     if (op.kind === "edit") {
       NodeTextSchema.parse(op.text);
       node.text = op.text;
+    } else if (op.kind === "style") {
+      const patch = NodeStyleSchema.parse(op.style);
+      const style = { ...node.style, ...patch };
+      for (const key of Object.keys(style) as (keyof NodeStyle)[])
+        if (style[key] === undefined) delete style[key];
+      if (Object.keys(style).length) node.style = style;
+      else delete node.style;
     } else if (node !== map.root && node.children.length)
       node.collapsed = op.collapsed;
   }
@@ -105,6 +115,7 @@ export interface EditorState {
   toggleCollapse(id: string): Promise<boolean>;
   reorderNode(id: string, newIndex: number): Promise<boolean>;
   moveNode(id: string, newParentId: string, index: number): Promise<boolean>;
+  updateNodeStyle(id: string, style: Partial<NodeStyle>): Promise<boolean>;
   dismissMoveError(): void;
 }
 export function createEditorStore(
@@ -386,6 +397,15 @@ export function createEditorStore(
       },
       dismissMoveError() {
         set({ moveError: null });
+      },
+      async updateNodeStyle(id, style) {
+        const { map, draft, editingNodeId } = get();
+        const node = map && findNode(map.root, id);
+        if (!node || draft || editingNodeId) return false;
+        const patch = NodeStyleSchema.parse(style);
+        const keys = Object.keys(patch) as (keyof NodeStyle)[];
+        if (!keys.some((key) => node.style?.[key] !== patch[key])) return false;
+        return enqueue({ kind: "style", id, style: structuredClone(patch) });
       },
     };
   });

@@ -135,6 +135,97 @@ function centreOf(node: any) {
     clientY: node.position.y + node.measured.height / 2 + 400,
   });
 }
+it("passes source-node styling to outgoing edges and opens styling on a node click or context menu", () => {
+  draggableMap();
+  const map = structuredClone(useEditorStore.getState().map!);
+  map.root.style = { connectorColor: "#ff0000", connectorWidth: 8 };
+  map.root.children[0].style = { connectorColor: "#0000ff" };
+  map.root.children[0].children = [
+    { id: "nested", text: "Nested", collapsed: false, children: [] },
+  ];
+  act(() => useEditorStore.setState({ map }));
+  expect(
+    flowProps.current.edges.find((edge: any) => edge.target === "first").data
+      .style,
+  ).toEqual(map.root.style);
+  expect(
+    flowProps.current.edges.find((edge: any) => edge.target === "nested").data
+      .style,
+  ).toEqual(map.root.children[0].style);
+  expect(
+    screen.queryByRole("button", { name: "Style" }),
+  ).not.toBeInTheDocument();
+  expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
+  act(() =>
+    flowProps.current.onNodeClick(
+      { target: document.createElement("span") },
+      { id: "first" },
+    ),
+  );
+  expect(
+    screen.getByRole("complementary", { name: "Node options" }),
+  ).toBeInTheDocument();
+  fireEvent.keyDown(screen.getByRole("complementary"), { key: "Escape" });
+  expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
+  const event = { preventDefault: vi.fn() };
+  act(() => flowProps.current.onNodeContextMenu(event, { id: "first" }));
+  expect(event.preventDefault).toHaveBeenCalled();
+  expect(useEditorStore.getState().selectedNodeId).toBe("first");
+  expect(
+    screen.getByRole("complementary", { name: "Node options" }),
+  ).toBeInTheDocument();
+  act(() => useEditorStore.getState().select("third"));
+  expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
+});
+it("switches node options on click and dismisses them for canvas clicks, editing, and dragging", () => {
+  const { first } = draggableMap();
+  const click = (id: string) =>
+    act(() =>
+      flowProps.current.onNodeClick(
+        { target: document.createElement("span") },
+        { id },
+      ),
+    );
+  click("first");
+  fireEvent.change(screen.getByLabelText("Background color"), {
+    target: { value: "#ff0000" },
+  });
+  click("third");
+  expect(screen.getByRole("complementary")).toHaveTextContent("third");
+  expect(screen.getByRole("button", { name: "Apply style" })).toBeDisabled();
+  act(() => flowProps.current.onPaneClick());
+  expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
+  click("first");
+  act(() => flowProps.current.onNodeDoubleClick({}, { id: "first" }));
+  expect(useEditorStore.getState().editingNodeId).toBe("first");
+  expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
+  act(() => useEditorStore.getState().cancelEdit());
+  click("first");
+  act(() =>
+    flowProps.current.onNodeDragStart(new MouseEvent("mousemove"), first),
+  );
+  expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
+});
+it("ignores control clicks and keeps canvas shortcuts working while options are open", () => {
+  draggableMap();
+  act(() =>
+    flowProps.current.onNodeClick(
+      { target: document.createElement("button") },
+      { id: "first" },
+    ),
+  );
+  expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
+  act(() =>
+    flowProps.current.onNodeClick(
+      { target: document.createElement("span") },
+      { id: "first" },
+    ),
+  );
+  fireEvent.keyDown(screen.getByLabelText("Mind map editor"), {
+    key: "Escape",
+  });
+  expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
+});
 it("highlights a new parent and moves the entire branch only on drop", () => {
   const { first, third, move, reorder } = draggableMap();
   const event = centreOf(third);

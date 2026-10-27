@@ -71,6 +71,13 @@ try {
       id: "12345678-1234-4234-8234-123456789099",
       text: "Survives recreation",
       collapsed: false,
+      style: {
+        backgroundColor: "#ffcc44",
+        textColor: "#123456",
+        connectorColor: "#cc2277",
+        connectorStyle: "dotted",
+        connectorWidth: 8,
+      },
       children: [
         {
           id: "12345678-1234-4234-8234-123456789097",
@@ -135,7 +142,7 @@ try {
   await request(`/api/trash/${map.id}/restore`, "POST");
   assert.deepEqual(await request(`/api/maps/${map.id}`), map);
   console.log(
-    "PASS: Compose build, static assets, SPA fallback, API, duplication, sibling order, branch moves, bind-mounted JSON, restart, recreation, trash and restoration.",
+    "PASS: Compose build, static assets, SPA fallback, API, duplication, sibling order, branch moves, custom styles, bind-mounted JSON, restart, recreation, trash and restoration.",
   );
 } finally {
   await compose("down", "--remove-orphans");

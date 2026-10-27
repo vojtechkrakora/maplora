@@ -42,6 +42,7 @@ The application has no authentication. Deploy it within a trusted private networ
 - Reorder a selected sibling with **Alt+Up / Alt+Down**, or drag it onto the top/bottom quarter of another sibling to insert before/after it. A line marks the insertion point. A failed save restores the previous order and offers retry.
 - Sibling reordering preserves each branch's contents and parent. Reordering root children can switch their side because the layout alternates right and left.
 - Move a branch by dragging onto the centre of its new parent. A highlighted outline marks the destination, which expands after the move. The complete subtree, IDs, and stored styles are preserved. The root cannot be moved; self, descendant, and current-parent targets show an inline error. Escape or a drop outside valid targets cancels without saving. A failed save restores the previous tree and shows an error for three seconds or until the next interaction; drag again to retry.
+- Click a node to open its options panel and customize its background and text colors. Connector settings control lines from that node to its children: color, solid/dashed/dotted pattern, and 1–8px thickness. The panel also opens on right-click. Native color pickers cover the full hue range. Preview changes in the panel, then choose **Apply style** to save. **Reset** removes an individual override; **Restore theme defaults** clears all styling on that node. Cancel, Escape, clicking the canvas, or selecting another node discards unapplied changes. The canvas stays interactive; double-click edits text and dragging closes the options panel.
 - Drag the canvas to pan. Scroll to zoom around the cursor. Zoom buttons adjust by 10 percentage points, bounded at 10%–200%; **Fit to screen** adjusts the viewport.
 
 | Key | Action |
@@ -93,9 +94,9 @@ The Compose verification requires a working local Docker daemon. It uses a separ
 
 ## Scope and limitations
 
-This implements MVP tasks 1–14, post-MVP tasks 15–17 (duplicate maps, reorder siblings, and move branches), and the Docker verification checkpoint in the Kiro plan. Tasks and test coverage are tracked in `.kiro/specs/maplora/tasks.md`. The bounded snapshot infrastructure requested by task 9.1 is present; undo/redo controls and shortcuts are intentionally deferred with task 22.
+This implements MVP tasks 1–14, post-MVP tasks 15–18 (duplicate maps, reorder siblings, move branches, and visual customization), and the Docker verification checkpoint in the Kiro plan. Tasks and test coverage are tracked in `.kiro/specs/maplora/tasks.md`. The bounded snapshot infrastructure requested by task 9.1 is present; undo/redo controls and shortcuts are intentionally deferred with task 22.
 
-Custom styles, manual theme switching, import/export, PNG export, and undo/redo remain deferred to tasks 18–22. The UI follows the system color scheme. Schema v1 is the only supported version; a migration registry is ready for future versions, but no fictional older format is accepted.
+Manual theme switching, import/export, PNG export, and undo/redo remain deferred to tasks 19–22. The UI follows the system color scheme. Schema v1 is the only supported version; a migration registry is ready for future versions, but no fictional older format is accepted.
 
 Maps above 500 nodes show a performance warning. Measurements and layout run synchronously as specified by the approved `useMemo` implementation; unusually large maps can exceed the stated responsiveness targets. Multi-tab edits retry once; an operation whose target was deleted in another tab fails visibly rather than recreating it. Multi-process writers and external edits during use are unsupported.
 
