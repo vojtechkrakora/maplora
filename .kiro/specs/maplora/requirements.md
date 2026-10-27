@@ -122,6 +122,7 @@ The following requirements are planned enhancements to be implemented after the 
 3. WHEN the Editor opens a mind map containing up to 500 nodes, THE Application SHALL complete loading and rendering all nodes within 2 seconds.
 4. WHEN the Editor opens a mind map containing more than 500 nodes, THE Application SHALL display a performance warning and SHALL still render the map, though response time is not guaranteed.
 5. IF the Map File cannot be read when opening a map, THEN THE Application SHALL display an error message indicating the file could not be read and SHALL return the user to the list screen.
+6. THE Editor SHALL render the root node in a visually distinct style from all other nodes, using a larger size, stronger visual weight (e.g. bolder text, more prominent border), or a dedicated accent color, so that the root node is immediately recognizable as the centre of the map regardless of the tree's shape or size.
 
 ---
 
@@ -290,6 +291,7 @@ The following requirements are planned enhancements to be implemented after the 
 3. THE Editor SHALL position nodes such that no two node label bounding boxes overlap, maintaining a minimum gap of 8px between any two bounding boxes.
 4. THE Editor SHALL render exactly one visible connector line between each parent node and each of its children.
 5. WHEN the layout recalculation completes after a structural change, THE Editor SHALL animate all node position changes with a transition duration between 150ms and 400ms.
+6. THE Editor SHALL provide a "Re-centre root" action (accessible from the toolbar and via a keyboard shortcut, e.g. `Home`) that instantly pans the canvas so that the root node is positioned at the centre of the visible viewport, without changing the zoom level.
 
 ---
 
@@ -327,6 +329,7 @@ The following requirements are planned enhancements to be implemented after the 
    - `ArrowRight`: move focus to the first child node
    - `Ctrl+Z` (Windows/Linux) / `Cmd+Z` (macOS): undo the most recent undoable operation
    - `Ctrl+Shift+Z` or `Ctrl+Y` (Windows/Linux) / `Cmd+Shift+Z` (macOS): redo the most recently undone operation
+   - `Home`: re-centre the canvas on the root node (pan only, zoom unchanged)
 2. WHEN the user presses `?` or activates the keyboard shortcut help button in the UI, THE Editor SHALL display a keyboard shortcut reference panel.
 3. WHEN a text input field is focused, THE Editor SHALL NOT trigger node-level shortcuts for `Tab`, `Delete`, `Backspace`, `ArrowUp`, `ArrowDown`, `ArrowLeft`, `ArrowRight`, or `Space`.
 

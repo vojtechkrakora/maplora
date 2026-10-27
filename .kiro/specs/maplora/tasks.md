@@ -510,6 +510,28 @@ MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Po
     - Component (MSW): tag management control adds/removes tags; autocomplete shows existing tags; "+N" badge appears when >5 tags; tag filter filters map cards; clear-all resets filter
     - _Requirements: 28.3, 28.4, 28.11, 28.12, 28.13, 28.14, 28.15_
 
+- [ ] 28. Root node prominence and re-centre (Post-MVP)
+  - [ ]* 28.1 Apply visually distinct styling to the root node in `MindMapNode`
+    - In `MindMapNode`, detect whether the node is the root (depth 0 or an `isRoot` prop passed from `MindMapCanvas`)
+    - Root node CSS: larger minimum width and padding than non-root nodes, bolder font weight, a prominent themed accent border (e.g. 2–3px solid using `--color-accent` or `--node-root-border`), and a dedicated root background color defined as a CSS custom property in both light and dark theme palettes (`--node-bg-root`)
+    - Root node styling overrides the depth-0 palette color set in task 26 — the root gets its own distinct `--node-bg-root` value that stands apart from the depth-based palette
+    - WHERE `node.style?.backgroundColor` is set by the user, that custom color takes precedence over `--node-bg-root`, consistent with the existing customization override rules (Req 15.6)
+    - _Requirements: 3.6_
+
+  - [ ]* 28.2 Add "Re-centre root" toolbar button and `Home` keyboard shortcut
+    - Add a "Re-centre root" button to `EditorToolbar` (e.g. a target/crosshair icon with tooltip)
+    - On activation: call React Flow's `setCenter(rootX, rootY, { duration: 200 })` to pan the canvas so the root node is at the centre of the viewport, without changing the zoom level
+    - Register `Home` key in the existing keyboard shortcut handler in `EditorPage`; fire the re-centre action when no text input is focused
+    - Add `Home` → "Re-centre root" to the keyboard shortcut reference panel
+    - _Requirements: 14.6, 16.1_
+
+  - [ ]* 28.3 Write unit and component tests
+    - Unit: `isRoot` / depth-0 detection returns `true` for the root node and `false` for all others
+    - Component: root node has a CSS class or inline style that differs from a depth-1 node; non-root nodes are unaffected
+    - Component: "Re-centre root" button is present in the toolbar; clicking it calls the React Flow `setCenter` API with the root node's coordinates
+    - Component: pressing `Home` while a non-input element is focused triggers re-centre; pressing `Home` while a text input is focused does not
+    - _Requirements: 3.6, 14.6, 16.1_
+
 - [x] 23. Final checkpoint — all tests pass, Docker build verified
   - Ensure all tests pass, ask the user if questions arise.
 
@@ -649,7 +671,9 @@ All 258 automated tests passed across 25 files, including 27 new cases for indep
     { "id": 33, "tasks": ["27.1"] },
     { "id": 34, "tasks": ["27.2", "27.3"] },
     { "id": 35, "tasks": ["27.4", "27.5"] },
-    { "id": 36, "tasks": ["27.6"] }
+    { "id": 36, "tasks": ["27.6"] },
+    { "id": 37, "tasks": ["28.1"] },
+    { "id": 38, "tasks": ["28.2", "28.3"] }
   ]
 }
 ```
