@@ -22,6 +22,56 @@ Maplora is a self-hosted, single-user mind mapping web application. It provides 
 - **Application**: The Maplora web application as a whole.
 - **Server**: The backend process that serves the Application and manages Map Files.
 - **API**: The HTTP interface exposed by the Server for map management and persistence operations.
+- **Trash Directory**: A subdirectory named `_trash` within the Data Directory where Map Files are moved when a user deletes a mind map. Files in the Trash Directory are not shown in the main map list.
+- **Revision**: A monotonically increasing integer stored in every Map File and incremented on every successful write, used to detect and reject stale save requests.
+
+---
+
+## MVP Requirements
+
+The following requirements constitute the Minimum Viable Product (MVP) and must be satisfied before the application is considered functionally usable.
+
+### MVP — Core Editing
+
+| Requirement | Description |
+|---|---|
+| 1 | Mind Map List |
+| 2 | Create Mind Map |
+| 3 | Open and Edit a Mind Map |
+| 4 | Rename a Mind Map |
+| 6 | Delete a Mind Map (trash-based) |
+| 7 | Add Nodes |
+| 8 | Edit Node Text |
+| 9 | Delete Nodes |
+| 12 | Collapse and Expand Branches |
+| 13 | Canvas Navigation — Zoom and Pan |
+| 14 | Automatic Layout |
+| 16 | Keyboard Shortcuts |
+
+### MVP — Persistence and Deployment
+
+| Requirement | Description |
+|---|---|
+| 21 | Map File Schema and Versioning |
+| 22 | Safe File Writes |
+| 23 | Docker Deployment |
+| 24 | Data Persistence and Backup |
+
+### Post-MVP Enhancements
+
+The following requirements are planned enhancements to be implemented after the MVP is stable:
+
+| Requirement | Description | Notes |
+|---|---|---|
+| 5 | Duplicate a Mind Map | Useful but not essential for initial use |
+| 10 | Rearrange Nodes | Drag-to-reorder sibling ordering |
+| 11 | Move Branches | Drag-to-reparent; complex interaction |
+| 15 | Visual Customization | Node and branch color/style |
+| 17 | Light and Dark Theme | Defaults to system preference in MVP |
+| 18 | Export to JSON | Import/export pair |
+| 19 | Import from JSON | Import/export pair |
+| 20 | Export to PNG | Image sharing |
+| 25 | Undo and Redo | History depth ≥ 50 operations |
 
 ---
 
@@ -104,16 +154,21 @@ Maplora is a self-hosted, single-user mind mapping web application. It provides 
 
 ### Requirement 6: Delete a Mind Map
 
-**User Story:** As a user, I want to delete a mind map I no longer need, so that I can keep my workspace clean.
+**User Story:** As a user, I want to delete a mind map I no longer need and be able to recover it if I change my mind, so that accidental deletion does not result in permanent data loss.
 
 #### Acceptance Criteria
 
 1. WHEN the user initiates the delete action on a mind map, THE Application SHALL display a confirmation dialog that includes the name of the map being deleted before proceeding.
-2. WHEN the user confirms deletion, THE Server SHALL permanently delete the corresponding Map File from the Data Directory.
-3. WHEN the Map File is deleted, THE Application SHALL remove the map from the list without requiring a page reload.
-4. WHEN the user cancels the confirmation dialog, THE Application SHALL take no action and SHALL close the dialog.
-5. IF the Server fails to delete the Map File, THEN THE Application SHALL display an error message indicating that the deletion failed and SHALL retain the map in the list.
-6. IF the map being deleted is currently open in the Editor, THEN THE Application SHALL close the Editor and return the user to the list screen after successful deletion.
+2. WHEN the user confirms deletion, THE Server SHALL move the corresponding Map File from the Data Directory into a `_trash` subdirectory within the Data Directory, rather than permanently deleting it.
+3. WHEN the Map File has been moved to the trash, THE Application SHALL remove the map from the main list without requiring a page reload.
+4. THE Application SHALL provide a trash view accessible from the main list screen that displays all maps currently in the `_trash` subdirectory.
+5. WHEN the user selects a map in the trash view and confirms restoration, THE Server SHALL move the Map File back from the `_trash` subdirectory to the Data Directory and THE Application SHALL display the map in the main list.
+6. THE Application SHALL provide a "Empty Trash" action in the trash view; WHEN the user confirms this action, THE Server SHALL permanently delete all Map Files in the `_trash` subdirectory.
+7. WHEN the user cancels the initial confirmation dialog, THE Application SHALL take no action and SHALL close the dialog.
+8. IF the Server fails to move the Map File to the trash, THEN THE Application SHALL display an error message and SHALL retain the map in the main list.
+9. IF the map being deleted is currently open in the Editor, THEN THE Application SHALL close the Editor and return the user to the list screen after the map is successfully moved to trash.
+10. THE Application SHALL NOT open or render maps stored in the `_trash` subdirectory in the Editor.
+11. Map Files in the `_trash` subdirectory SHALL NOT be included in the map count or list on the home screen.
 
 ---
 
@@ -227,7 +282,7 @@ Maplora is a self-hosted, single-user mind mapping web application. It provides 
 
 #### Acceptance Criteria
 
-1. WHEN a node is added, deleted, moved, or its collapsed/expanded state changes, THE Editor SHALL recalculate and render the positions of all nodes before the next frame is displayed.
+1. WHEN a node is added, deleted, moved, or its collapsed/expanded state changes, THE Editor SHALL recalculate and begin rendering the updated node positions within 100ms of the triggering action, without blocking the browser UI thread.
 2. THE Editor SHALL distribute top-level branches across both sides of the root node such that the count difference between the left side and the right side is at most 1.
 3. THE Editor SHALL position nodes such that no two node label bounding boxes overlap, maintaining a minimum gap of 8px between any two bounding boxes.
 4. THE Editor SHALL render exactly one visible connector line between each parent node and each of its children.
@@ -266,6 +321,8 @@ Maplora is a self-hosted, single-user mind mapping web application. It provides 
    - `ArrowUp` / `ArrowDown`: move focus to the previous or next sibling node
    - `ArrowLeft`: move focus to the parent node
    - `ArrowRight`: move focus to the first child node
+   - `Ctrl+Z` (Windows/Linux) / `Cmd+Z` (macOS): undo the most recent undoable operation
+   - `Ctrl+Shift+Z` or `Ctrl+Y` (Windows/Linux) / `Cmd+Shift+Z` (macOS): redo the most recently undone operation
 2. WHEN the user presses `?` or activates the keyboard shortcut help button in the UI, THE Editor SHALL display a keyboard shortcut reference panel.
 3. WHEN a text input field is focused, THE Editor SHALL NOT trigger node-level shortcuts for `Tab`, `Delete`, `Backspace`, `ArrowUp`, `ArrowDown`, `ArrowLeft`, `ArrowRight`, or `Space`.
 
@@ -309,8 +366,9 @@ Maplora is a self-hosted, single-user mind mapping web application. It provides 
 #### Acceptance Criteria
 
 1. WHEN the user selects a JSON file via the import action, THE Application SHALL validate the file's content against the Map File schema before proceeding.
-2. IF the imported JSON is valid and conforms to the current or a supported older schema version, THEN THE Server SHALL assign a new unique Map ID to the imported map and SHALL save it as a new Map File in the Data Directory.
-3. IF the imported JSON is valid and conforms to the current or a supported older schema version, THEN THE Application SHALL automatically display the newly imported map in the map list without requiring a manual refresh.
+2. IF the imported JSON is valid and conforms to the current or a supported older schema version, THEN THE Server SHALL discard the Map ID from the imported file, assign a new unique Map ID (UUID v4) to the imported map, and save it as a new Map File in the Data Directory.
+3. IF the imported JSON is valid and conforms to the current or a supported older schema version, THEN THE Server SHALL preserve all Node IDs from the imported file, provided no Node ID in the imported file conflicts with an existing Node ID in any Map File already present in the Data Directory; IF a Node ID conflict is detected, THEN THE Server SHALL replace the conflicting Node IDs with newly generated UUID v4 values before saving.
+3a. WHEN the import is saved successfully, THE Application SHALL automatically display the newly imported map in the map list without requiring a manual refresh.
 4. IF the selected file is not valid JSON, THEN THE Application SHALL display an error message indicating that the file could not be parsed as JSON and SHALL NOT create a Map File.
 5. IF the JSON is valid but does not conform to any supported schema version, THEN THE Application SHALL display an error message indicating the detected schema version and stating that it is not supported, and SHALL NOT create a Map File.
 6. IF the JSON conforms to a supported older schema version, THEN THE Server SHALL migrate the map data to the current schema version before saving the Map File.
@@ -361,6 +419,8 @@ Maplora is a self-hosted, single-user mind mapping web application. It provides 
 4. THE Server SHALL ensure only one write operation is in progress per Map ID at a time, serializing any concurrent save requests for the same Map ID.
 5. WHEN a save operation completes successfully, THE Server SHALL return a success response to the caller confirming the Map File was updated.
 6. IF the temporary file cannot be deleted after a failed write, THEN THE Server SHALL return an error response to the caller indicating the save failed and the temporary file could not be cleaned up.
+7. THE Map File SHALL include a `revision` integer field that THE Server SHALL increment by 1 on every successful write, starting at 1 for newly created maps.
+8. WHEN the Server receives a save request for a Map ID, THE Server SHALL compare the `revision` in the incoming payload against the `revision` in the current Map File; IF the incoming `revision` is less than the current file's `revision`, THEN THE Server SHALL reject the save request and SHALL return an error indicating a stale-write conflict, without modifying the Map File.
 
 ---
 
@@ -371,7 +431,7 @@ Maplora is a self-hosted, single-user mind mapping web application. It provides 
 #### Acceptance Criteria
 
 1. THE Application SHALL be deployable by running `docker compose up` without any manual setup steps beyond editing the provided `docker-compose.yml` or `.env` file.
-2. THE Application SHALL provide a `Dockerfile` that builds a self-contained image containing all runtime dependencies, requiring no network access during the container build process.
+2. THE Application SHALL provide a `Dockerfile` that produces a self-contained image containing all runtime dependencies required to run the Application.
 3. THE Application SHALL provide a `docker-compose.yml` file that defines the complete deployment configuration.
 4. THE Application SHALL expose its web interface on the host port specified by the `HOST_PORT` environment variable, defaulting to port 3000 when `HOST_PORT` is not set.
 5. THE Server SHALL read the Data Directory path from the `DATA_DIR` environment variable, defaulting to `/data` when `DATA_DIR` is not set.
@@ -394,3 +454,20 @@ Maplora is a self-hosted, single-user mind mapping web application. It provides 
 4. THE Application SHALL NOT store any persistent application state (map data) inside the container filesystem layers outside the Data Directory.
 5. THE Application SHALL store all Map Files such that copying the Data Directory on the host captures all map data with no additional state required from any other location.
 6. IF the Data Directory is not accessible when the Server starts, THEN THE Server SHALL refuse to start and emit an error indicating the Data Directory is unavailable, rather than falling back to any path inside the container filesystem.
+
+---
+
+### Requirement 25: Undo and Redo
+
+**User Story:** As a user, I want to undo and redo changes to my mind map, so that I can recover from mistakes quickly without losing my work.
+
+#### Acceptance Criteria
+
+1. THE Editor SHALL maintain an undo history for the following operations: adding a node, deleting a node or branch, editing node text, moving a branch to a new parent, reordering sibling nodes, and changing a node's visual customization.
+2. WHEN the user triggers the undo action (`Ctrl+Z` on Windows/Linux, `Cmd+Z` on macOS), THE Editor SHALL reverse the most recent undoable operation and update the canvas.
+3. WHEN the user triggers the redo action (`Ctrl+Shift+Z` or `Ctrl+Y` on Windows/Linux, `Cmd+Shift+Z` on macOS), THE Editor SHALL re-apply the most recently undone operation and update the canvas.
+4. THE Editor SHALL maintain a minimum undo history depth of 50 operations per editing session.
+5. THE Editor SHALL persist the map state to the Map File after each undo or redo operation, using the same safe-write mechanism defined in Requirement 22.
+6. WHEN the map is closed or the Editor is navigated away from, THE Editor MAY discard the undo history; THE undo history SHALL NOT be required to persist across sessions.
+7. WHEN no further undo operations are available, THE Editor SHALL disable the undo control and SHALL take no action when the undo shortcut is triggered.
+8. WHEN no further redo operations are available, THE Editor SHALL disable the redo control and SHALL take no action when the redo shortcut is triggered.
