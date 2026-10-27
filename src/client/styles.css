@@ -626,7 +626,8 @@ label {
   gap: 8px;
   flex-shrink: 0;
 }
-.theme-toggle {
+.theme-toggle,
+.history-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1005,10 +1006,12 @@ label {
 :root[data-theme="dark"] .brand-dot {
   color: #87a484;
 }
-@media (max-width: 850px) {
+@media (max-width: 1050px) {
   .editor-toolbar-actions .desktop-label {
     display: none;
   }
+}
+@media (max-width: 850px) {
   .map-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1057,13 +1060,17 @@ label {
     left: 12px;
     right: 12px;
     top: 12px;
+    flex-wrap: wrap;
   }
   .editor-title {
     gap: 12px;
     padding: 12px;
+    max-width: 100%;
   }
   .editor-toolbar-actions {
     gap: 4px;
+    width: 100%;
+    justify-content: flex-end;
   }
   .editor-toolbar-actions button {
     padding: 8px;

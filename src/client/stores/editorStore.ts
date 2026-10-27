@@ -91,6 +91,32 @@ interface Draft {
   parentId: string;
   afterId?: string;
 }
+type QueuedOperation = NodeOperation | { kind: "undo" } | { kind: "redo" };
+type History = Pick<EditorState, "undoStack" | "redoStack">;
+
+function advance(map: MapFile, history: History, operation: QueuedOperation) {
+  const { undoStack, redoStack } = history;
+  if (operation.kind === "undo" || operation.kind === "redo") {
+    const undo = operation.kind === "undo";
+    const snapshot = (undo ? undoStack : redoStack).at(-1);
+    if (!snapshot) return null;
+    // History restores the tree; revisions and map metadata belong to the latest save.
+    return {
+      map: { ...map, root: structuredClone(snapshot.root) },
+      undoStack: undo
+        ? undoStack.slice(0, -1)
+        : [...undoStack, structuredClone(map)].slice(-50),
+      redoStack: undo
+        ? [...redoStack, structuredClone(map)].slice(-50)
+        : redoStack.slice(0, -1),
+    };
+  }
+  return {
+    map: applyOperation(map, operation),
+    undoStack: [...undoStack, structuredClone(map)].slice(-50),
+    redoStack: [],
+  };
+}
 export interface EditorState {
   map: MapFile | null;
   selectedNodeId: string | null;
@@ -116,6 +142,8 @@ export interface EditorState {
   reorderNode(id: string, newIndex: number): Promise<boolean>;
   moveNode(id: string, newParentId: string, index: number): Promise<boolean>;
   updateNodeStyle(id: string, style: Partial<NodeStyle>): Promise<boolean>;
+  undo(): Promise<boolean>;
+  redo(): Promise<boolean>;
   dismissMoveError(): void;
 }
 export function createEditorStore(
@@ -125,23 +153,45 @@ export function createEditorStore(
     let base: MapFile | null = null,
       generation = 0,
       runningGeneration: number | null = null;
-    let failed: NodeOperation | null = null;
+    let failed: QueuedOperation | null = null;
+    let history: History = { undoStack: [], redoStack: [] };
     type Pending = {
-      operation: NodeOperation;
+      operation: QueuedOperation;
       resolve(success: boolean): void;
     };
     const pending: Pending[] = [];
     function project() {
       let map = base;
+      let projectedHistory = history;
       if (map)
         for (const p of pending) {
           try {
-            map = applyOperation(map, p.operation);
+            const next = advance(map, projectedHistory, p.operation);
+            if (next) {
+              map = next.map;
+              projectedHistory = next;
+            }
           } catch {
             /* A dependent edit may become invalid after rollback. */
           }
         }
-      set({ map });
+      const { selectedNodeId, editingNodeId, draft } = get();
+      const validDraft = draft && map && findNode(map.root, draft.parentId);
+      const exists = (id: string | null) =>
+        id &&
+        map &&
+        (findNode(map.root, id) || (validDraft && draft?.id === id));
+      set({
+        map,
+        undoStack: projectedHistory.undoStack,
+        redoStack: projectedHistory.redoStack,
+        selectedNodeId:
+          selectedNodeId && !exists(selectedNodeId)
+            ? (map?.root.id ?? null)
+            : selectedNodeId,
+        editingNodeId: exists(editingNodeId) ? editingNodeId : null,
+        draft: validDraft ? draft : null,
+      });
     }
     async function pump() {
       if (runningGeneration === generation || !base) return;
@@ -151,7 +201,14 @@ export function createEditorStore(
         const item = pending[0];
         set({ saving: "saving" });
         try {
-          let candidate = applyOperation(base!, item.operation);
+          let next = advance(base!, history, item.operation);
+          if (!next) {
+            pending.shift();
+            project();
+            item.resolve(false);
+            continue;
+          }
+          let candidate = next.map;
           let saved: MapFile;
           try {
             saved = await service.saveMap(candidate);
@@ -162,7 +219,8 @@ export function createEditorStore(
             const latest = await service.fetchMap(candidate.id);
             if (currentGeneration !== generation) break;
             base = latest;
-            candidate = applyOperation(latest, item.operation);
+            next = advance(latest, history, item.operation)!;
+            candidate = next.map;
             saved = await service.saveMap(candidate);
             if (currentGeneration !== generation) break;
             set({
@@ -171,6 +229,7 @@ export function createEditorStore(
             });
           }
           if (currentGeneration !== generation) break;
+          history = { undoStack: next.undoStack, redoStack: next.redoStack };
           base = saved;
           pending.shift();
           project();
@@ -205,19 +264,18 @@ export function createEditorStore(
         if (!get().error) set({ saving: "idle" });
       }
     }
-    function enqueue(operation: NodeOperation): Promise<boolean> {
+    function enqueue(operation: QueuedOperation): Promise<boolean> {
       const current = get().map;
       if (!current) return Promise.resolve(false);
-      // Validate before changing state; retain bounded snapshots for post-MVP history.
-      applyOperation(current, operation);
-      set((s) => ({
-        undoStack: [...s.undoStack, structuredClone(current)].slice(-50),
-        redoStack: [],
+      // Validate first. Replaying pending changes also projects their history, so
+      // failed saves remove their snapshots without losing later valid changes.
+      if (!advance(current, get(), operation)) return Promise.resolve(false);
+      set({
         error: null,
         notice: null,
         moveError: null,
         saving: "saving",
-      }));
+      });
       failed = null;
       return new Promise((resolve) => {
         pending.push({ operation, resolve });
@@ -242,6 +300,7 @@ export function createEditorStore(
         const token = ++generation;
         for (const p of pending.splice(0)) p.resolve(false);
         base = null;
+        history = { undoStack: [], redoStack: [] };
         failed = null;
         runningGeneration = null;
         set({
@@ -287,6 +346,14 @@ export function createEditorStore(
           }
         }
         return true;
+      },
+      async undo() {
+        if (get().draft || get().editingNodeId) return false;
+        return enqueue({ kind: "undo" });
+      },
+      async redo() {
+        if (get().draft || get().editingNodeId) return false;
+        return enqueue({ kind: "redo" });
       },
       select(id) {
         set({ selectedNodeId: id });

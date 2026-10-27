@@ -24,6 +24,10 @@ function setup(selected = "child") {
     cancelEdit: vi.fn(),
     select: vi.fn(),
     reorderNode: vi.fn(),
+    undo: vi.fn(),
+    redo: vi.fn(),
+    undoStack: [map],
+    redoStack: [map],
   } as unknown as EditorState;
   const remove = vi.fn(),
     help = vi.fn();
@@ -52,6 +56,11 @@ it.each([
   ["{Escape}", "cancelEdit", []],
   ["{Alt>}{ArrowUp}{/Alt}", "reorderNode", ["child", 0]],
   ["{Alt>}{ArrowDown}{/Alt}", "reorderNode", ["child", 2]],
+  ["{Control>}z{/Control}", "undo", []],
+  ["{Meta>}z{/Meta}", "undo", []],
+  ["{Control>}{Shift>}z{/Shift}{/Control}", "redo", []],
+  ["{Meta>}{Shift>}z{/Shift}{/Meta}", "redo", []],
+  ["{Control>}y{/Control}", "redo", []],
 ])("routes %s to the expected node action", async (key, action, args) => {
   const { store, user } = setup();
   await user.keyboard(key as string);
@@ -69,6 +78,44 @@ it("does not add a sibling or delete the root through its handler", async () => 
   expect(store.addNode).not.toHaveBeenCalled();
   await user.keyboard("{Alt>}{ArrowUp}{ArrowDown}{/Alt}");
   expect(store.reorderNode).not.toHaveBeenCalled();
+});
+it("ignores history shortcuts in native text fields and dialogs", async () => {
+  const { store, user } = setup();
+  await user.click(screen.getByLabelText("Node text"));
+  await user.keyboard("{Control>}z{Shift>}z{/Shift}y{/Control}{Meta>}z{/Meta}");
+  expect(store.undo).not.toHaveBeenCalled();
+  expect(store.redo).not.toHaveBeenCalled();
+  const input = screen.getByLabelText("Node text");
+  const dialog = document.createElement("div");
+  dialog.setAttribute("role", "dialog");
+  input.parentElement!.append(dialog);
+  handleEditorKey(
+    {
+      key: "z",
+      target: dialog,
+      ctrlKey: true,
+      metaKey: false,
+      altKey: false,
+      shiftKey: false,
+      preventDefault: vi.fn(),
+    },
+    store,
+    vi.fn(),
+    vi.fn(),
+  );
+  expect(store.undo).not.toHaveBeenCalled();
+});
+it("allows history without a selection and does nothing for empty stacks or unrelated modifiers", async () => {
+  const { store, user } = setup();
+  store.selectedNodeId = null;
+  await user.keyboard("{Control>}z{/Control}");
+  expect(store.undo).toHaveBeenCalledTimes(1);
+  store.undoStack = [];
+  store.redoStack = [];
+  await user.keyboard("{Control>}z{Shift>}z{/Shift}y{/Control}");
+  await user.keyboard("{Control>}{Alt>}z{/Alt}{/Control}{Meta>}y{/Meta}");
+  expect(store.undo).toHaveBeenCalledTimes(1);
+  expect(store.redo).not.toHaveBeenCalled();
 });
 it("ignores node shortcuts while typing", async () => {
   const { store, user, remove } = setup();

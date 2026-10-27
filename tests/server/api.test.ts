@@ -11,6 +11,8 @@ import { MapFileSchema } from "../../src/shared/schema.js";
 import { createApp } from "../../src/server/app.js";
 import { assertDataDir, MapFileStore } from "../../src/server/MapFileStore.js";
 import { textArb } from "../fixtures.js";
+import { createEditorStore } from "../../src/client/stores/editorStore.js";
+import { ApiError } from "../../src/client/api.js";
 let dir: string, base: string, server: Server;
 beforeAll(async () => {
   dir = await fs.mkdtemp(path.join(os.tmpdir(), "maplora-api-"));
@@ -199,4 +201,72 @@ it("rejects duplication of invalid, missing, trashed and corrupt source maps", a
   const before = (await fs.readdir(dir)).sort();
   expect((await request(`/api/maps/${corruptId}/duplicate`, "POST")).status).toBe(400);
   expect((await fs.readdir(dir)).sort()).toEqual(before);
+});
+
+it("persists editor undo/redo through live HTTP, atomic files and stale-revision recovery", async () => {
+  const { id } = await (
+    await request("/api/maps", "POST", { title: "History" })
+  ).json();
+  const url = `/api/maps/${id}`;
+  async function readResponse(response: Response): Promise<MapFile> {
+    const body = await response.json();
+    if (!response.ok)
+      throw new ApiError(response.status, body.code, body.error);
+    return body;
+  }
+  const editor = createEditorStore({
+    fetchMap: async (mapId) =>
+      readResponse(await request(`/api/maps/${mapId}`)),
+    saveMap: async (map) =>
+      readResponse(await request(`/api/maps/${map.id}`, "PUT", map)),
+  });
+  await editor.getState().loadMap(id);
+  const original = structuredClone(editor.getState().map!);
+  const readDisk = async () =>
+    MapFileSchema.parse(
+      JSON.parse(await fs.readFile(path.join(dir, `${id}.json`), "utf8")),
+    );
+  editor.getState().addNode(original.root.id);
+  const child = editor.getState().draft!.id;
+  expect(await editor.getState().editNodeText(child, "Persisted child")).toBe(
+    true,
+  );
+  const added = await readDisk();
+  expect(added.revision).toBe(2);
+  expect(await editor.getState().undo()).toBe(true);
+  expect(await readDisk()).toMatchObject({ revision: 3, root: original.root });
+  expect(await editor.getState().redo()).toBe(true);
+  expect(await readDisk()).toMatchObject({ revision: 4, root: added.root });
+  expect(
+    (await request(`${url}/title`, "PATCH", { title: "Remote title" })).ok,
+  ).toBe(true);
+  expect(await editor.getState().undo()).toBe(true);
+  expect(await readDisk()).toMatchObject({
+    revision: 6,
+    title: "Remote title",
+    root: original.root,
+  });
+  expect(editor.getState().notice).toContain("newer revision");
+  expect(await editor.getState().redo()).toBe(true);
+  expect(await readDisk()).toMatchObject({
+    revision: 7,
+    title: "Remote title",
+    root: added.root,
+  });
+  expect(await readDisk()).toEqual(editor.getState().map);
+  expect(
+    (await fs.readdir(dir)).filter(
+      (name) => name.startsWith(id) && name.includes(".tmp."),
+    ),
+  ).toEqual([]);
+  const before = await readDisk();
+  await request(url, "DELETE");
+  expect(await editor.getState().undo()).toBe(false);
+  expect(editor.getState().gone).toBe(true);
+  expect(editor.getState().map).toEqual(before);
+  expect(
+    JSON.parse(
+      await fs.readFile(path.join(dir, "_trash", `${id}.json`), "utf8"),
+    ),
+  ).toEqual(before);
 });

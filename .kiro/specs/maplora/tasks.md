@@ -355,8 +355,8 @@ MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Po
     - On failure: show error toast, cancel download
     - _Requirements: 20.1, 20.2, 20.3, 20.4, 20.5_
 
-- [ ] 22. Undo and redo (Post-MVP)
-  - [ ]* 22.1 Extend `editorStore` with full undo/redo and keyboard shortcuts
+- [x] 22. Undo and redo (Post-MVP)
+  - [x]* 22.1 Extend `editorStore` with full undo/redo and keyboard shortcuts
     - Add `undoStack: MapFile[]`, `redoStack: MapFile[]` to `editorStore`
     - All existing node mutation actions already push snapshots (from task 9.1); add `undo()` and `redo()` actions
     - `undo()`: pops snapshot from `undoStack`, pushes current state to `redoStack`, sets as live map, calls `saveMap()`; no-op if stack empty
@@ -366,14 +366,14 @@ MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Po
     - Undo/redo buttons in `EditorToolbar`; disable when respective stack is empty
     - _Requirements: 25.1, 25.2, 25.3, 25.4, 25.5, 25.6, 25.7, 25.8, 16.1_
 
-  - [ ]* 22.2 Write property tests for undo/redo correctness
+  - [x]* 22.2 Write property tests for undo/redo correctness
     - **Property 20: Undo reverses the most recent operation**
     - **Validates: Requirements 25.2**
     - **Property 21: Undo then redo is an identity operation**
     - **Validates: Requirements 25.3**
     - Use fast-check to generate sequences of node operations; assert undo returns prior state; assert undo+redo is identity
 
-  - [ ]* 22.3 Write unit tests for undo/redo boundary conditions
+  - [x]* 22.3 Write unit tests for undo/redo boundary conditions
     - Test 50-op cap (oldest dropped); test undo no-op when stack empty; test redo no-op when stack empty; test redo stack cleared on new operation
     - _Requirements: 25.4, 25.7, 25.8_
 
@@ -542,7 +542,7 @@ MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Po
 Verification completed on 2026-10-27: 60 Vitest tests passed across 9 files, with 100 runs per property test; client/server production build and clean dependency installation passed. Browser checks passed on localhost and plain HTTP over the LAN. A 500-node map rendered in 619ms with 499 connectors and no measured label overlaps. Docker Compose built and ran the final image, served static assets and SPA routes, persisted JSON on the host, and preserved identical map data across restart and container recreation. Trash and restoration passed in the container. The production Compose service was left running on port 3000.
 
 - Tasks 1–14 and their optional MVP test tasks are implemented. Post-MVP progress is recorded below. Task 23 is used only for final deployment verification.
-- The snapshot stacks requested by task 9.1 are bounded at 50; undo/redo actions, controls and shortcuts remain deferred to task 22, including the undo/redo entries in Requirement 16.1.
+- The snapshot stacks requested by task 9.1 are bounded at 50. Task 22 now adds complete undo/redo actions, controls, shortcuts and save-queue history reconciliation, including the entries in Requirement 16.1.
 - Collapsed node labels retain their measured dimensions; only their descendants are excluded from layout. Giving the visible label a zero-size box would violate Requirement 14.3's non-overlap constraint.
 - Saves use a serialized operation queue, reapply the pending operation to the latest map on a 409, and retry once. Failed operations roll back and can be retried from the error banner. Late responses from previously opened maps are ignored.
 - New nodes stay as unsaved drafts until confirmed. UUID v4 creation also supports plain HTTP LAN deployments through Web Crypto's random-value API.
@@ -625,10 +625,18 @@ All 258 automated tests passed across 25 files, including 27 new cases for indep
 - Each task references specific requirements for traceability
 - Checkpoints (tasks 6, 11, 14, 23) are natural integration points to verify the running application
 - Property tests validate universal correctness properties across many generated inputs; unit tests validate specific examples and edge cases
-- The undo/redo snapshot infrastructure (task 9.1) is wired in during MVP so post-MVP task 22.1 only needs to add the keyboard shortcuts and UI controls — the stack mechanics are already present
+- The undo/redo snapshot infrastructure (task 9.1) is wired in during MVP; task 22 completes actions, controls, shortcuts and reconciliation with queued saves.
 - `npm run dev` (not `vitest --watch`) should be run manually in a terminal for local development; use `npm test` (runs `vitest --run`) for CI and automated verification
 
 ---
+
+**Task 22 Implementation Notes**
+
+Task 22 implemented on 2026-10-27: the editor offers Undo and Redo toolbar buttons and Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z and Ctrl+Y shortcuts. Full MapFile snapshots retain the last 50 operations, covering additions, branch deletion, text edits, branch moves, sibling order, styling and collapse state. Undo/redo restores the complete tree, preserving node IDs and current map metadata, and saves through the existing revision-checked atomic write path. New valid changes clear redo; no-op/invalid changes and cancelled drafts do not. History resets when loading a map, and empty stacks disable their controls without making requests. Finish or cancel text editing before using history; native text-field shortcuts and dialogs retain their own behavior. Controls return focus to the canvas, close unapplied options and remain usable while saves are queued. The toolbar wraps on narrow screens.
+
+The save queue now projects history alongside pending operations from the last committed state. This keeps rapid edit/undo/redo sequences ordered and removes failed changes from history while preserving later valid operations. Failed undo/redo restores the canvas and both stacks and offers Retry change. A stale-revision retry uses current revision/metadata and records the actual pre-save tree for the opposite action. Because history uses complete snapshots, undo/redo can replace tree edits from another tab; one editor tab per map is recommended. Invalid selections fall back to the root when history removes their node, and late saves cannot modify another map session. No dependency, schema or endpoint changed.
+
+All 280 automated tests passed across 26 files, including 22 new cases for history, keyboard/toolbar controls and a live HTTP/filesystem round trip. Properties 20 and 21 each ran 100 generated sequences of node operations. Tests cover the 50-operation cap, full redo, empty stacks, invalid/no-op edits, redo clearing, save failure/retry, queued actions and rollback, conflict recovery, deleted maps, selection and session isolation. Real Chrome passed toolbar and Ctrl/Cmd shortcuts, exact subtree/style/ID restoration, text and draft guards, persistence with increasing revisions, failure/retry, queued edit/undo/redo, 409 metadata preservation, reload reset and 320–1440px layouts without page errors. On a 500-node canvas, persisted undo completed in 271ms and redo in 301ms with all nodes retained. The production build and isolated Docker Compose verification passed, including static assets, API, bind-mounted JSON, restart and recreation, trash and restoration. Map tags (task 27) and root prominence/re-centering (task 28) remain deferred.
 
 ## Task Dependency Graph
 

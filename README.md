@@ -38,6 +38,7 @@ The application has no authentication. Deploy it within a trusted private networ
 - **Duplicate** creates an independent copy with fresh map and node IDs, a new creation time, and revision 1. Its title ends in “ (Copy)”; long source titles are shortened to keep the result within 100 characters. Labels, branch order, collapse states, and stored styles are preserved.
 - Select a node and use the floating toolbar, double-click, or keyboard shortcuts. Node labels accept 1–200 characters.
 - Changes save automatically. The toolbar reports saving, saved, and failed states. Failed mutations roll back and offer **Retry change**, except branch moves, which show a temporary error and can be dragged again.
+- **Undo / Redo** in the editor toolbar restores the last 50 node changes, including additions, deletions, text edits, branch moves, sibling order, styling and collapse state. Each undo or redo saves automatically. New changes clear redo; failed saves restore the canvas and history and offer retry. Finish or cancel text editing before using the buttons; text fields retain native undo shortcuts. History resets when you reopen or reload a map.
 - A new node is a local draft until you confirm its text. Escape or an empty draft cancels it without a write.
 - Branches arrange themselves on both sides of the root. Collapse controls hide descendants while preserving their individual collapse states.
 - Reorder a selected sibling with **Alt+Up / Alt+Down**, or drag it onto the top/bottom quarter of another sibling to insert before/after it. A line marks the insertion point. A failed save restores the previous order and offers retry.
@@ -62,6 +63,8 @@ The application has no authentication. Deploy it within a trusted private networ
 | Up / Down | Previous / next sibling |
 | Alt + Up / Down | Move selected sibling earlier / later |
 | Left / Right | Parent / first visible child |
+| Ctrl+Z / Cmd+Z | Undo |
+| Ctrl+Shift+Z / Cmd+Shift+Z / Ctrl+Y | Redo |
 | Escape | Cancel editing or close a dialog |
 | ? | Shortcut reference |
 
@@ -101,9 +104,9 @@ The Compose verification requires a working local Docker daemon. It uses a separ
 
 ## Scope and limitations
 
-This implements MVP tasks 1–14, post-MVP tasks 15–21 (duplicate maps, reorder siblings, move branches, visual customization, light/dark themes, JSON export/import, and PNG export), tasks 24–26 (library search/sorting, Copy as Markdown, and depth-based node colors), and the Docker verification checkpoint in the Kiro plan. Tasks and test coverage are tracked in `.kiro/specs/maplora/tasks.md`. The bounded snapshot infrastructure requested by task 9.1 is present; undo/redo controls and shortcuts are intentionally deferred with task 22.
+This implements MVP tasks 1–14, post-MVP tasks 15–22 (duplicate maps, reorder siblings, move branches, visual customization, light/dark themes, JSON export/import, PNG export, and undo/redo), tasks 24–26 (library search/sorting, Copy as Markdown, and depth-based node colors), and the Docker verification checkpoint in the Kiro plan. Tasks and test coverage are tracked in `.kiro/specs/maplora/tasks.md`.
 
-Undo/redo remains deferred to task 22. Theme preferences are local to each browser; map files retain only per-node styling. Schema v1 is the only supported version; loading and importing share a migration registry ready for future versions, but no fictional older format is accepted. Import scans existing active and trashed files for node ID conflicts; malformed JSON has no usable tree and is skipped, while IDs in parseable invalid maps are still reserved. An unreadable existing file aborts import so it cannot silently miss conflicts.
+Undo/redo history is kept in browser memory for the current map session. History restores the complete node tree while retaining current map metadata and increasing the revision. On a stale revision, undo/redo retries the snapshot against the latest file; this can replace tree changes made in another tab, so use one editor tab per map. Theme preferences are local to each browser; map files retain only per-node styling. Schema v1 is the only supported version; loading and importing share a migration registry ready for future versions, but no fictional older format is accepted. Import scans existing active and trashed files for node ID conflicts; malformed JSON has no usable tree and is skipped, while IDs in parseable invalid maps are still reserved. An unreadable existing file aborts import so it cannot silently miss conflicts.
 
 PNG export uses the architecture's `html-to-image` library, loaded on demand. Version 1.11.11 is pinned following the [React Flow export example](https://reactflow.dev/examples/misc/download-image), which documents problems in later releases. The application uses system fonts and no external image assets. Large exports are rejected if their 2× image would exceed 32,767 pixels on either side or 64 million pixels in total; browser-specific canvas limits may be lower. An error is shown instead of downloading a silently reduced or clipped image. Rendering also fails visibly if the complete flow cannot initialize within 15 seconds.
 

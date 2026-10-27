@@ -3,7 +3,13 @@ import { findNode, findParent } from "../shared/tree.js";
 export function handleEditorKey(
   event: Pick<
     KeyboardEvent,
-    "key" | "target" | "ctrlKey" | "metaKey" | "altKey" | "preventDefault"
+    | "key"
+    | "target"
+    | "ctrlKey"
+    | "metaKey"
+    | "altKey"
+    | "shiftKey"
+    | "preventDefault"
   >,
   store: EditorState,
   remove: (id: string) => void,
@@ -12,11 +18,21 @@ export function handleEditorKey(
   if (
     (event.target as HTMLElement)?.closest?.(
       "input,textarea,select,[contenteditable=true],[role=dialog]",
-    ) ||
-    event.ctrlKey ||
-    event.metaKey
+    )
   )
     return;
+  if (event.ctrlKey || event.metaKey) {
+    if (event.altKey || !store.map || store.draft || store.editingNodeId)
+      return;
+    const key = event.key.toLowerCase();
+    if (key === "z" || (event.ctrlKey && !event.shiftKey && key === "y")) {
+      event.preventDefault();
+      const redo = key === "y" || event.shiftKey;
+      if (redo ? store.redoStack.length : store.undoStack.length)
+        void (redo ? store.redo() : store.undo());
+    }
+    return;
+  }
   const { map, selectedNodeId: id } = store;
   if (event.altKey) {
     if (map && id && ["ArrowUp", "ArrowDown"].includes(event.key)) {

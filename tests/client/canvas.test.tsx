@@ -22,10 +22,14 @@ const { flowProps, methods } = vi.hoisted(() => ({
 }));
 const originalReorder = useEditorStore.getState().reorderNode;
 const originalMove = useEditorStore.getState().moveNode;
+const originalUndo = useEditorStore.getState().undo;
+const originalRedo = useEditorStore.getState().redo;
 afterEach(() => {
   useEditorStore.setState({
     reorderNode: originalReorder,
     moveNode: originalMove,
+    undo: originalUndo,
+    redo: originalRedo,
   });
   vi.restoreAllMocks();
   vi.useRealTimers();
@@ -52,7 +56,37 @@ beforeEach(() => {
     notice: null,
     moveError: null,
     saving: "idle",
+    undoStack: [],
+    redoStack: [],
   });
+});
+it("disables empty history controls and routes enabled controls back to the canvas", () => {
+  render(
+    <MemoryRouter>
+      <MindMapCanvas />
+    </MemoryRouter>,
+  );
+  const undo = screen.getByRole("button", { name: "Undo" });
+  const redo = screen.getByRole("button", { name: "Redo" });
+  expect(undo).toBeDisabled();
+  expect(redo).toBeDisabled();
+  const undoAction = vi
+    .spyOn(useEditorStore.getState(), "undo")
+    .mockResolvedValue(true);
+  const redoAction = vi
+    .spyOn(useEditorStore.getState(), "redo")
+    .mockResolvedValue(true);
+  act(() =>
+    useEditorStore.setState({ undoStack: [fixture()], redoStack: [fixture()] }),
+  );
+  fireEvent.click(undo);
+  expect(undoAction).toHaveBeenCalledTimes(1);
+  fireEvent.click(redo);
+  expect(redoAction).toHaveBeenCalledTimes(1);
+  expect(screen.getByLabelText("Mind map editor")).toHaveFocus();
+  act(() => useEditorStore.setState({ editingNodeId: fixture().root.id }));
+  expect(undo).toBeDisabled();
+  expect(redo).toBeDisabled();
 });
 it("switches the canvas color mode from the editor theme control without modifying the map", () => {
   const original = structuredClone(useEditorStore.getState().map!);

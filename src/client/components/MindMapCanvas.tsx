@@ -514,8 +514,18 @@ export function MindMapCanvas() {
         setInvalidDrop(null);
         if (e.key === "Escape") setStyleTarget(null);
         if (dragRef.current) return;
-        if (!(e.target as HTMLElement).closest("button"))
+        if (
+          e.ctrlKey ||
+          e.metaKey ||
+          !(e.target as HTMLElement).closest("button")
+        )
           handleEditorKey(e.nativeEvent, s, remove, () => setHelp(true));
+        if (
+          e.nativeEvent.defaultPrevented &&
+          (e.ctrlKey || e.metaKey) &&
+          ["z", "y"].includes(e.key.toLowerCase())
+        )
+          setStyleTarget(null);
       }}
     >
       <div className="measurement" ref={measurement} aria-hidden="true">
@@ -558,6 +568,52 @@ export function MindMapCanvas() {
           </div>
         </div>
         <div className="editor-toolbar-actions">
+          <button
+            className="history-button"
+            aria-label="Undo"
+            title="Undo (Ctrl+Z / ⌘Z)"
+            disabled={!s.undoStack.length || !!s.editingNodeId || !!s.draft}
+            onClick={() => {
+              setStyleTarget(null);
+              void s.undo();
+              canvas.current?.focus();
+            }}
+          >
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              aria-hidden="true"
+            >
+              <path d="M9 4 4 9l5 5M4 9h10a6 6 0 0 1 0 12" />
+            </svg>
+          </button>
+          <button
+            className="history-button"
+            aria-label="Redo"
+            title="Redo (Ctrl+Shift+Z / Ctrl+Y / ⌘⇧Z)"
+            disabled={!s.redoStack.length || !!s.editingNodeId || !!s.draft}
+            onClick={() => {
+              setStyleTarget(null);
+              void s.redo();
+              canvas.current?.focus();
+            }}
+          >
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              aria-hidden="true"
+            >
+              <path d="m15 4 5 5-5 5m5-5H10a6 6 0 0 0 0 12" />
+            </svg>
+          </button>
           <CopyMarkdownButton map={s.map!} />
           <ExportJsonButton map={s.map!} />
           <ExportPngButton map={s.map!} />
@@ -749,6 +805,8 @@ export function MindMapCanvas() {
               ["↑ / ↓", "Previous / next sibling"],
               ["Alt + ↑ / ↓", "Move sibling up / down"],
               ["← / →", "Parent / first child"],
+              ["Ctrl / ⌘ + Z", "Undo"],
+              ["Ctrl / ⌘ + Shift + Z; Ctrl + Y", "Redo"],
               ["Escape", "Cancel edit or close dialog"],
               ["?", "Show shortcuts"],
             ].map(([key, label]) => (
