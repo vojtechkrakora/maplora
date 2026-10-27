@@ -613,6 +613,33 @@ label {
   padding: 10px;
   flex-shrink: 0;
 }
+.copy-markdown {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  white-space: nowrap;
+}
+.clipboard-toast {
+  position: fixed;
+  bottom: 144px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  width: max-content;
+  max-width: calc(100vw - 24px);
+  padding: 12px 18px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow);
+  font-size: 13px;
+  pointer-events: none;
+}
+.clipboard-error {
+  border-color: #bd534b;
+}
 .editor-title {
   display: flex;
   align-items: center;

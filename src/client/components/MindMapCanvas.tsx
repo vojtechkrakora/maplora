@@ -32,6 +32,7 @@ import { NodeContextMenu } from "./NodeContextMenu";
 import { connectorAppearance, nodeAppearance } from "../nodeStyle";
 import { ThemeToggle } from "./ThemeToggle";
 import { useThemeStore } from "../stores/themeStore";
+import { CopyMarkdownButton } from "./CopyMarkdownButton";
 
 type MindNode = Node<
   {
@@ -554,6 +555,7 @@ export function MindMapCanvas() {
           </div>
         </div>
         <div className="editor-toolbar-actions">
+          <CopyMarkdownButton map={s.map!} />
           <ThemeToggle />
           <button onClick={() => setHelp(true)} aria-label="Keyboard shortcuts">
             ? <span className="desktop-label">Shortcuts</span>

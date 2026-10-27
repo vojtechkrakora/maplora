@@ -408,8 +408,8 @@ MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Po
     - Use MSW + React Testing Library; test: search input filters displayed cards; no-results state shows query and clear button; clear button resets search; sort dropdown re-orders cards; sort selection persists across remount (mocked localStorage)
     - _Requirements: 26.1, 26.3, 26.4, 26.5, 26.6_
 
-- [ ] 25. Copy as Markdown (Post-MVP)
-  - [ ]* 25.1 Implement `mapToMarkdown()` conversion function
+- [x] 25. Copy as Markdown (Post-MVP)
+  - [x]* 25.1 Implement `mapToMarkdown()` conversion function
     - Create `src/client/markdownExport.ts`
     - `mapToMarkdown(map: MapFile): string` — pure function, no side effects
     - Root node rendered as `# {root.text}`
@@ -418,7 +418,7 @@ MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Po
     - All nodes included regardless of `collapsed` state — full logical structure exported
     - _Requirements: 27.2, 27.3, 27.4, 27.5_
 
-  - [ ]* 25.2 Implement "Copy as Markdown" action in `EditorToolbar`
+  - [x]* 25.2 Implement "Copy as Markdown" action in `EditorToolbar`
     - Add "Copy as Markdown" button to `EditorToolbar`; always visible while a map is open
     - On click: call `mapToMarkdown(editorStore.map)`, write result to clipboard via `navigator.clipboard.writeText()`
     - On success: show a brief "Copied to clipboard" toast that auto-dismisses after 2 seconds
@@ -426,7 +426,7 @@ MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Po
     - Button remains enabled regardless of selected node or editing state
     - _Requirements: 27.1, 27.6, 27.7, 27.8_
 
-  - [ ]* 25.3 Write unit tests for `mapToMarkdown()`
+  - [x]* 25.3 Write unit tests for `mapToMarkdown()`
     - Test single root node (no children) produces `# {title}` with no bullet lines
     - Test one level of children: root + 3 children produces `# root\n- a\n- b\n- c`
     - Test two levels of nesting: child with grandchildren uses 2-space indented bullets
@@ -436,7 +436,7 @@ MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Po
     - Test special characters in node text (e.g. `#`, `-`, `*`): output is not escaped (plain text export)
     - _Requirements: 27.3, 27.4, 27.5_
 
-  - [ ]* 25.4 Write component tests for the "Copy as Markdown" toolbar button
+  - [x]* 25.4 Write component tests for the "Copy as Markdown" toolbar button
     - Mock `navigator.clipboard.writeText` as a spy
     - Assert button is present and enabled while a map is loaded
     - Assert clicking the button calls `navigator.clipboard.writeText` with output that starts with `# {map root text}`
@@ -494,6 +494,14 @@ Task 24 implemented on 2026-10-27: the library offers a labeled search input wit
 Sort changes persist under `maplora:sortOrder`; initialization validates all four supported values and defaults to newest first when missing, invalid or unreadable. Blocked reads and writes never prevent searching or sorting; a choice that cannot be saved remains usable in the app session and reload uses the default. Search is session state, not a stored preference. No schema, API or dependency changes were needed. Tasks 20–22 remain deferred.
 
 All 158 automated tests passed across 16 files, including 23 new store and MSW/component cases for filtering, all sort directions, combined operations, immutable source data, timestamp edge cases, persistence initialization, unavailable storage, exact debounce timing, pending-input cancellation, no-results clearing, remounts and in-memory list changes. The existing create-navigation test now waits for navigation before looking for a root label also present on a transient library card. The production build and formatting checks passed. Real Chrome verified 500 and 750 maps, all sort options, persistence after reload, invalid/blocked storage, mobile light/dark controls, no additional list requests and no page errors or map writes. Search updates with 500 maps took 56–67ms, including the debounce, below the 100ms target. Docker Compose verification passed the image build, assets, SPA routing, API and persisted JSON across restart/recreation, duplication, reordering, branch moves, custom styles, trash and restoration.
+
+## Requirement 27 Implementation Notes
+
+Task 25 implemented on 2026-10-27: Copy as Markdown in the editor toolbar converts the current `editorStore.map` into plain Markdown and writes it with the browser clipboard API. The pure converter uses iterative depth-first traversal, emits the root label as a level-one heading and descendants as bullets with two spaces per additional depth, preserves sibling order and special characters verbatim, and includes all collapsed descendants. It does not mutate the map, make requests or use the map title in place of the root label. Unconfirmed draft nodes and text still being typed are not part of the stored map state and are not exported.
+
+The button remains enabled during selection changes, editing, drafts, saving and save errors. Pointer activation retains input focus so copying does not trigger blur-based saving. The native button supports Enter and Space, has a full accessible name and tooltip, and shows a compact copy icon on narrow screens. Success appears only after the clipboard write resolves; confirmation dismisses after exactly two seconds. Unavailable or rejected clipboard writes show Could not copy to clipboard and allow retry. Repeated copies restart the timer, and outdated asynchronous results after a newer copy, map change or unmount are ignored. No dependencies, schemas or server endpoints changed; tasks 20–22 remain deferred.
+
+All 176 automated tests passed across 18 files, including 18 new conversion, clipboard and toolbar-state cases. The production build and formatting checks passed. Real Chrome verified actual clipboard text, collapsed descendants, automatic confirmation dismissal, editing and draft focus without saves, keyboard activation, dark theme, 320px/390px toolbar layout, unavailable/rejected clipboard errors and no page errors or map writes. Browser tests used isolated temporary map data. Docker Compose verification passed the image build, static assets, SPA routing, API, map operations and persisted JSON across restart/recreation, trash and restoration.
 
 ## Notes
 

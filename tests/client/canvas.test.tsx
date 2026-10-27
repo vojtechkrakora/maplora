@@ -65,6 +65,28 @@ it("switches the canvas color mode from the editor theme control without modifyi
   expect(flowProps.current.colorMode).toBe("dark");
   expect(useEditorStore.getState().map).toEqual(original);
 });
+it.each(["unselected", "editing", "draft", "saving", "error"])(
+  "keeps Copy as Markdown available while %s",
+  (state) => {
+    const map = useEditorStore.getState().map!;
+    useEditorStore.setState({
+      selectedNodeId: state === "unselected" ? null : map.root.id,
+      editingNodeId:
+        state === "editing" || state === "draft" ? map.root.id : null,
+      draft: state === "draft" ? { id: "draft", parentId: map.root.id } : null,
+      saving:
+        state === "saving" ? "saving" : state === "error" ? "error" : "idle",
+    });
+    render(
+      <MemoryRouter>
+        <MindMapCanvas />
+      </MemoryRouter>,
+    );
+    expect(
+      screen.getByRole("button", { name: "Copy as Markdown" }),
+    ).toBeEnabled();
+  },
+);
 it("keeps measured dimensions across controlled selection updates so nodes remain clickable", () => {
   render(
     <MemoryRouter
