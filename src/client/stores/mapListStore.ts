@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import * as api from "../api";
-import type { MapSummary } from "../../shared/schema.js";
+import type { MapFile, MapSummary } from "../../shared/schema.js";
 
 export type SortOrder =
   "updatedAt_desc" | "updatedAt_asc" | "title_asc" | "title_desc";
@@ -35,6 +35,7 @@ interface MapListState {
   renameMap(id: string, title: string): Promise<void>;
   deleteMap(id: string): Promise<void>;
   duplicateMap(id: string): Promise<void>;
+  importMap(map: MapFile): Promise<MapSummary>;
 }
 export const useMapListStore = create<MapListState>((set, get) => ({
   maps: [],
@@ -100,5 +101,10 @@ export const useMapListStore = create<MapListState>((set, get) => ({
   async duplicateMap(id) {
     const map = await api.duplicateMap(id);
     set((s) => ({ maps: [map, ...s.maps] }));
+  },
+  async importMap(map) {
+    const summary = await api.importMap(map);
+    set((s) => ({ maps: [summary, ...s.maps], searchQuery: "" }));
+    return summary;
   },
 }));

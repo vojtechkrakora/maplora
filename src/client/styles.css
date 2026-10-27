@@ -324,6 +324,20 @@ label {
   margin-top: 14px;
   line-height: 1.7;
 }
+.library-heading-actions {
+  display: flex;
+  align-items: start;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 12px;
+}
+.import-status {
+  max-width: 200px;
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  color: var(--muted);
+}
 .page-heading button span {
   font-size: 20px;
   margin-right: 5px;
@@ -619,14 +633,16 @@ label {
   padding: 10px;
   flex-shrink: 0;
 }
-.copy-markdown {
+.copy-markdown,
+.export-json {
   display: inline-flex;
   align-items: center;
   gap: 8px;
   padding: 10px;
   white-space: nowrap;
 }
-.clipboard-toast {
+.clipboard-toast,
+.export-error-toast {
   position: fixed;
   bottom: 144px;
   left: 50%;
@@ -643,7 +659,8 @@ label {
   font-size: 13px;
   pointer-events: none;
 }
-.clipboard-error {
+.clipboard-error,
+.export-error-toast {
   border-color: #bd534b;
 }
 .editor-title {
@@ -969,6 +986,9 @@ label {
   color: #87a484;
 }
 @media (max-width: 850px) {
+  .editor-toolbar-actions .desktop-label {
+    display: none;
+  }
   .map-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

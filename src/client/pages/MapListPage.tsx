@@ -4,6 +4,7 @@ import { useMapListStore, type SortOrder } from "../stores/mapListStore";
 import { Brand, MapGlyph } from "../components/Brand";
 import { TitleDialog } from "../components/Dialog";
 import { ThemeToggle } from "../components/ThemeToggle";
+import { ImportJsonButton } from "../components/ImportJsonButton";
 import type { MapSummary } from "../../shared/schema.js";
 
 function MapListControls() {
@@ -49,7 +50,8 @@ export function MapListPage() {
     location = useLocation();
   const [dialog, setDialog] = useState<"create" | MapSummary | null>(null),
     [error, setError] = useState<string | null>(location.state?.error ?? null),
-    [duplicating, setDuplicating] = useState<Set<string>>(() => new Set());
+    [duplicating, setDuplicating] = useState<Set<string>>(() => new Set()),
+    [importedId, setImportedId] = useState("");
   const maps = useMemo(
     () => s.filteredAndSortedMaps(),
     [s.maps, s.searchQuery, s.sortOrder, s.filteredAndSortedMaps],
@@ -79,9 +81,14 @@ export function MapListPage() {
             <h1>Your mind, mapped.</h1>
             <p className="subtitle">Give your ideas space to grow.</p>
           </div>
-          <button className="primary" onClick={() => setDialog("create")}>
-            <span aria-hidden="true">＋</span> New mind map
-          </button>
+          <div className="library-heading-actions">
+            <ImportJsonButton
+              onImported={(summary) => setImportedId(summary.id)}
+            />
+            <button className="primary" onClick={() => setDialog("create")}>
+              <span aria-hidden="true">＋</span> New mind map
+            </button>
+          </div>
         </div>
         {(error || s.error) && (
           <div className="error-banner" role="alert">
@@ -96,7 +103,7 @@ export function MapListPage() {
             </button>
           </div>
         )}
-        <MapListControls />
+        <MapListControls key={importedId} />
         <div className="section-label">
           <span>
             YOUR MAPS <span className="count">{s.maps.length}</span>

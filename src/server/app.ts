@@ -9,6 +9,7 @@ import {
 } from "../shared/schema.js";
 import { MapFileStore } from "./MapFileStore.js";
 import { AppError } from "./errors.js";
+import { SchemaVersionError } from "../shared/mapValidation.js";
 export function createApp(store: MapFileStore, publicDir = "./dist/public") {
   const app = new Hono<{ Variables: { store: MapFileStore } }>();
   app.use("/api/*", async (c, next) => {
@@ -28,7 +29,7 @@ export function createApp(store: MapFileStore, publicDir = "./dist/public") {
         },
         400,
       );
-    if (error instanceof AppError)
+    if (error instanceof AppError || error instanceof SchemaVersionError)
       return c.json({ error: error.message, code: error.code }, error.status);
     if (error instanceof SyntaxError)
       return c.json(
@@ -51,6 +52,9 @@ export function createApp(store: MapFileStore, publicDir = "./dist/public") {
       .parse(await c.req.json());
     return c.json(summarize(await c.get("store").createMap(title)), 201);
   });
+  app.post("/api/maps/import", async (c) =>
+    c.json(summarize(await c.get("store").importMap(await c.req.json())), 201),
+  );
   app.get("/api/maps/:mapId", async (c) =>
     c.json(
       await c.get("store").readMap(UUIDSchema.parse(c.req.param("mapId"))),
@@ -79,7 +83,9 @@ export function createApp(store: MapFileStore, publicDir = "./dist/public") {
   app.post("/api/maps/:mapId/duplicate", async (c) =>
     c.json(
       summarize(
-        await c.get("store").duplicateMap(UUIDSchema.parse(c.req.param("mapId"))),
+        await c
+          .get("store")
+          .duplicateMap(UUIDSchema.parse(c.req.param("mapId"))),
       ),
       201,
     ),

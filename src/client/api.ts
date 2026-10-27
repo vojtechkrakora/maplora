@@ -37,6 +37,8 @@ export const renameMap = (id: string, title: string) =>
 export const deleteMap = (id: string) => request<void>(`/maps/${id}`, "DELETE");
 export const duplicateMap = (id: string) =>
   request<MapSummary>(`/maps/${id}/duplicate`, "POST");
+export const importMap = (map: MapFile) =>
+  request<MapSummary>("/maps/import", "POST", map);
 export const fetchTrash = () => request<MapSummary[]>("/trash");
 export const restoreMap = (id: string) =>
   request<void>(`/trash/${id}/restore`, "POST");

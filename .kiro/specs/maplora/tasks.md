@@ -331,20 +331,20 @@ MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Po
     - Handle `localStorage` unavailable: apply for session only
     - _Requirements: 17.1, 17.2, 17.3, 17.4, 17.5, 17.6, 17.7_
 
-- [ ] 20. JSON export and import (Post-MVP)
-  - [ ]* 20.1 Implement JSON export (client-side download)
+- [x] 20. JSON export and import (Post-MVP)
+  - [x]* 20.1 Implement JSON export (client-side download)
     - Export action in `EditorToolbar`: serializes in-memory `MapFile` with `JSON.stringify`, creates `Blob`, triggers download as `{sanitizedTitle}.json`
     - Exported file conforms to current `MapFileSchema`; no server-side paths or host identifiers
     - On failure: show error toast, cancel download
     - _Requirements: 18.1, 18.2, 18.3, 18.4, 18.5, 18.6_
 
-  - [ ]* 20.2 Implement JSON import API endpoint and UI
+  - [x]* 20.2 Implement JSON import API endpoint and UI
     - `POST /api/maps/import`: Zod-validates body against supported schema versions; discards incoming `id`, assigns new Map ID; checks Node ID conflicts across all existing files, replaces conflicts with new UUIDs; runs migration if older schema; writes file; returns new `MapSummary`
     - Import action in `MapListPage`: `<input type="file" accept=".json">`; reads with `FileReader`; POSTs; on success appends to map list without reload
     - Error cases: invalid JSON → error dialog; unsupported schema version → error dialog with detected version
     - _Requirements: 19.1, 19.2, 19.3, 19.3a, 19.4, 19.5, 19.6_
 
-  - [ ]* 20.3 Write integration tests for import endpoint
+  - [x]* 20.3 Write integration tests for import endpoint
     - Test valid v1 import; test Node ID conflict replacement; test invalid JSON rejection; test unsupported schema version rejection
     - _Requirements: 19.1, 19.3, 19.4, 19.5_
 
@@ -533,6 +533,16 @@ Task 26 implemented on 2026-10-27: six CSS custom properties per theme define di
 `nodeAppearance` uses a stored custom background whenever present and otherwise selects the depth's CSS variable. The native background picker and preview use the same fallback, including after a theme change or Reset. Restore theme defaults continues to remove overrides, automatically revealing the current depth color. Default root text now uses the theme text color for contrast against its muted background; its accent border, larger type and padding remain. Explicit text, border and connector styles remain unchanged. No dependencies, schema changes or server endpoints were added; tasks 20–22 remain deferred.
 
 All 189 automated tests passed across 19 files, including 13 new cases for depth slots, cycling, custom backgrounds, resets, logical depths on both sides, collapse/expansion, drafts and branch moves. Existing style preview/reset assertions now expect the depth fallback. The production build and formatting checks passed. Real Chrome verified depths 0–8, six distinct colors and text contrast of at least 4.5:1 in both themes, custom background precedence, individual reset/full restore/reload, native picker and preview synchronization, collapse/expansion and branch-move recoloring. A 500-node map rendered with all 499 connectors in 286ms, without overlapping labels or page errors. Palette/theme changes did not write map data. Browser checks used isolated temporary map data. Docker Compose verification passed the image build, static assets, SPA routing, API, custom styles and map operations, bind-mounted JSON across restart/recreation, trash and restoration.
+
+## Task 20 Implementation Notes
+
+Task 20 implemented on 2026-10-27: Export JSON in the editor downloads the current in-memory map through a validated JSON Blob, using a portable title-derived filename. It includes the complete tree, collapsed descendants, IDs, timestamps, revision and styles without server paths or configuration. Pointer activation retains editing focus, so unconfirmed drafts and text still being typed are excluded without triggering a save. Downloads clean up temporary links and object URLs; failures show a retryable error toast. Native keyboard activation and narrow-screen icon controls remain available.
+
+Import JSON in the library reads a selected file through FileReader and validates it before POSTing to `/api/maps/import`. The client and server share the same version validation and migration registry as regular map loading. The endpoint assigns a new map ID and revision 1, retaining timestamps and tree data. It preserves nonconflicting node IDs and replaces conflicts found in active or trashed maps, including case variants. Parseable invalid files still reserve known node IDs; malformed JSON files are skipped because they have no usable tree, and other file-read failures abort the import. Imports serialize conflict scanning and writing against other imports and use the existing atomic write path. Existing files are unchanged; failed writes remove temporary files and permit retry. Schema v1 remains the only supported version, with no invented older format or new dependencies.
+
+The returned summary updates the library without refetching or navigation. Successful imports clear search and cancel any pending search debounce while retaining the sort preference. Import is disabled during the initial library fetch and during an import; cancelled pickers have no effect. Invalid JSON, invalid map data, unsupported versions (including the detected version), file-read failures and server errors show a dialog. The same file can be retried after closing the error.
+
+All 231 automated tests passed across 22 files, including 42 new transfer and import cases covering live HTTP, full v1 data preservation, partial conflicts across active/trash files, concurrent imports, corrupt existing files, rejected JSON/schema/versions, atomic failure cleanup, Blob contents and filenames, URL cleanup, FileReader errors, keyboard/focus behavior, pending-search cancellation, in-flight guards, initial-fetch ordering and UI error/retry. Production build and formatting checks passed. Real Chrome verified actual downloads and the native file chooser, full hidden subtree/styles, exports during editing/drafts without map writes, keyboard activation, dark theme, responsive controls from 320–850px, fresh imported IDs, unchanged source data, library updates without refetching, validation dialogs, export failure/retry and server failure/retry, with no page exceptions. Browser checks used isolated temporary map data. Docker Compose verification passed the image build, static assets, SPA routing, API, JSON import with conflict replacement, imported and existing bind-mounted data after restart/recreation, map operations, trash and restoration. Tasks 21–22 remain deferred.
 
 ## Notes
 

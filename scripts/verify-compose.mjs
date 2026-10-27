@@ -131,20 +131,45 @@ try {
     JSON.parse(await readFile(path.join(directory, `${copy.id}.json`), "utf8")),
     copy,
   );
+  const importedSummary = await request("/api/maps/import", "POST", map);
+  const imported = await request(`/api/maps/${importedSummary.id}`);
+  assert.notEqual(imported.id, map.id);
+  assert.equal(imported.revision, 1);
+  assert.equal(imported.createdAt, map.createdAt);
+  assert.equal(imported.updatedAt, map.updatedAt);
+  function compareImport(source, result) {
+    assert.notEqual(result.id, source.id);
+    assert.deepEqual(
+      { ...result, id: source.id, children: source.children },
+      source,
+    );
+    source.children.forEach((child, index) =>
+      compareImport(child, result.children[index]),
+    );
+  }
+  compareImport(map.root, imported.root);
+  assert.deepEqual(
+    JSON.parse(
+      await readFile(path.join(directory, `${imported.id}.json`), "utf8"),
+    ),
+    imported,
+  );
   await compose("restart");
   await ready();
   assert.deepEqual(await request(`/api/maps/${map.id}`), map);
   assert.deepEqual(await request(`/api/maps/${copy.id}`), copy);
+  assert.deepEqual(await request(`/api/maps/${imported.id}`), imported);
   await compose("up", "-d", "--no-build", "--force-recreate");
   await ready();
   assert.deepEqual(await request(`/api/maps/${map.id}`), map);
   assert.deepEqual(await request(`/api/maps/${copy.id}`), copy);
+  assert.deepEqual(await request(`/api/maps/${imported.id}`), imported);
   await request(`/api/maps/${map.id}`, "DELETE");
   assert.equal((await request("/api/trash")).length, 1);
   await request(`/api/trash/${map.id}/restore`, "POST");
   assert.deepEqual(await request(`/api/maps/${map.id}`), map);
   console.log(
-    "PASS: Compose build, static assets, theme bootstrap, SPA fallback, API, duplication, sibling order, branch moves, custom styles, bind-mounted JSON, restart, recreation, trash and restoration.",
+    "PASS: Compose build, static assets, theme bootstrap, SPA fallback, API, duplication, JSON import with conflict replacement, sibling order, branch moves, custom styles, bind-mounted JSON, restart, recreation, trash and restoration.",
   );
 } finally {
   await compose("down", "--remove-orphans");

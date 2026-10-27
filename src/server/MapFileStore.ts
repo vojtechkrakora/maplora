@@ -3,8 +3,6 @@ import { constants } from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import {
-  CURRENT_SCHEMA_VERSION,
-  MIN_SCHEMA_VERSION,
   MapFileSchema,
   TitleSchema,
   UUIDSchema,
@@ -13,41 +11,9 @@ import {
   type MapSummary,
 } from "../shared/schema.js";
 import { AppError } from "./errors.js";
+import { validateAndMigrate } from "../shared/mapValidation.js";
+export { validateAndMigrate, migrations } from "../shared/mapValidation.js";
 
-// Each future version registers a pure migration from that version to the next.
-export const migrations: Record<number, (old: unknown) => unknown> = {};
-export function validateAndMigrate(input: unknown): MapFile {
-  let value = input as Record<string, unknown>;
-  const version = value?.schemaVersion;
-  if (!Number.isInteger(version))
-    throw new AppError(
-      400,
-      "INVALID_SCHEMA",
-      "schemaVersion must be an integer",
-    );
-  if (Number(version) > CURRENT_SCHEMA_VERSION)
-    throw new AppError(
-      400,
-      "UNSUPPORTED_VERSION",
-      `Schema version ${version} exceeds supported maximum ${CURRENT_SCHEMA_VERSION}`,
-    );
-  if (Number(version) < MIN_SCHEMA_VERSION)
-    throw new AppError(
-      400,
-      "UNSUPPORTED_VERSION",
-      `Schema version ${version} is too old to migrate; minimum is ${MIN_SCHEMA_VERSION}`,
-    );
-  for (let v = Number(version); v < CURRENT_SCHEMA_VERSION; v++) {
-    if (!migrations[v])
-      throw new AppError(
-        400,
-        "UNSUPPORTED_VERSION",
-        `No migration from schema version ${v}`,
-      );
-    value = migrations[v](value) as Record<string, unknown>;
-  }
-  return MapFileSchema.parse(value);
-}
 export async function assertDataDir(dataDir: string) {
   try {
     if (!(await fs.stat(dataDir)).isDirectory())
@@ -225,6 +191,71 @@ export class MapFileStore {
     return this.locked(map.id, async () => {
       await this.atomicWrite(map);
       return map;
+    });
+  }
+  async importMap(input: unknown): Promise<MapFile> {
+    const map = validateAndMigrate(input);
+    // Imports must not simultaneously preserve the same incoming node IDs.
+    return this.locked("import", async () => {
+      const mapIds = new Set([map.id.toLowerCase()]);
+      const occupied = new Set<string>();
+      for (const directory of [
+        this.dataDir,
+        path.join(this.dataDir, "_trash"),
+      ]) {
+        const files = await fs.readdir(directory, { withFileTypes: true });
+        for (const file of files) {
+          if (!file.isFile() || !file.name.endsWith(".json")) continue;
+          mapIds.add(file.name.slice(0, -5).toLowerCase());
+          let parsed;
+          try {
+            parsed = JSON.parse(
+              await fs.readFile(path.join(directory, file.name), "utf8"),
+            );
+          } catch (error) {
+            // Invalid JSON has no usable tree; do not hide other valid maps.
+            if (error instanceof SyntaxError) continue;
+            // A concurrent move/delete will be reflected in the next import.
+            if ((error as NodeJS.ErrnoException).code === "ENOENT") continue;
+            throw error;
+          }
+          const stack: unknown[] = [parsed?.root];
+          while (stack.length) {
+            const node = stack.pop() as Record<string, unknown> | null;
+            if (!node || typeof node !== "object") continue;
+            if (typeof node.id === "string")
+              occupied.add(node.id.toLowerCase());
+            if (Array.isArray(node.children)) stack.push(...node.children);
+          }
+        }
+      }
+      const reserved = new Set(occupied);
+      const nodes = [map.root];
+      while (nodes.length) {
+        const node = nodes.pop()!;
+        reserved.add(node.id.toLowerCase());
+        nodes.push(...node.children);
+      }
+      nodes.push(map.root);
+      while (nodes.length) {
+        const node = nodes.pop()!;
+        if (occupied.has(node.id.toLowerCase())) {
+          do {
+            node.id = randomUUID();
+          } while (reserved.has(node.id.toLowerCase()));
+          reserved.add(node.id.toLowerCase());
+        }
+        occupied.add(node.id.toLowerCase());
+        nodes.push(...node.children);
+      }
+      do {
+        map.id = randomUUID();
+      } while (mapIds.has(map.id.toLowerCase()));
+      map.revision = 1;
+      return this.locked(map.id, async () => {
+        await this.atomicWrite(map);
+        return map;
+      });
     });
   }
   async renameMap(id: string, title: string) {
