@@ -300,12 +300,12 @@ MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Po
     - On drop call `reorderNode()`; on Escape restore original order
     - _Requirements: 10.1, 10.2, 10.3, 10.4_
 
-- [ ] 17. Move branches (Post-MVP)
-  - [ ]* 17.1 Implement `moveNode` in `editorStore`
+- [x] 17. Move branches (Post-MVP)
+  - [x]* 17.1 Implement `moveNode` in `editorStore`
     - `moveNode(nodeId, newParentId, index)`: validates no-cycle (not self, not descendant, not same parent); moves node and all descendants under new parent; pushes snapshot; persists
     - _Requirements: 11.1, 11.3, 11.5, 11.6_
 
-  - [ ]* 17.2 Implement drag-to-reparent UI in `MindMapCanvas`
+  - [x]* 17.2 Implement drag-to-reparent UI in `MindMapCanvas`
     - On node drag-and-drop onto another node (not self/descendant/same parent): call `moveNode()`; animate layout change within 300ms
     - On invalid target: show inline error indicator, reject move
     - On server failure: revert to previous parent, show auto-dismiss toast (3s)
@@ -404,7 +404,11 @@ All 66 tests passed across 9 files, including six new duplication tests covering
 
 Task 16 implemented on 2026-10-27: Alt+Up/Down reorders the selected sibling. Dragging onto a sibling's upper/lower half previews insertion before/after it, with a visible marker. The tree remains unchanged until a valid drop; Escape, an invalid/outside drop, window blur or a map change cancels the preview. Root nodes and single children cannot be dragged for reordering. Text editing and in-flight saves disable dragging. Save failures roll back through the existing queue and offer retry. Reorders retain all subtree data and use a stable sibling anchor for stale-revision recovery; changed parents or removed anchors fail visibly. React Flow remeasures connector handles when the bilateral layout switches a branch's side.
 
-All 81 automated tests passed across 10 files, including 100 generated reorder cases and tests for keyboard routing, insertion geometry, preview/cancellation, failure rollback/retry and concurrent saves. Real Chrome checks passed root and nested sibling reordering, both sides of the tree, insertion markers, Escape, invalid/outside drops, reload persistence, failure rollback/retry, editing guards and connector attachment after side changes. A 500-node map with all 499 connectors rendered in 428ms with no measured label overlaps. The production build and Docker Compose verification passed, including sibling order in bind-mounted JSON after restart and recreation, duplication, static assets, SPA routing, trash and restoration. Tasks 17–22 remain deferred.
+All 81 automated tests passed across 10 files, including 100 generated reorder cases and tests for keyboard routing, insertion geometry, preview/cancellation, failure rollback/retry and concurrent saves. Real Chrome checks passed root and nested sibling reordering, both sides of the tree, insertion markers, Escape, invalid/outside drops, reload persistence, failure rollback/retry, editing guards and connector attachment after side changes. A 500-node map with all 499 connectors rendered in 428ms with no measured label overlaps. The production build and Docker Compose verification passed, including sibling order in bind-mounted JSON after restart and recreation, duplication, static assets, SPA routing, trash and restoration. Tasks 17–22 remained deferred at this checkpoint.
+
+Task 17 implemented on 2026-10-27: dragging onto the centre of a node moves the complete branch under that parent, preserving IDs, labels, styles and descendant collapse states. The destination expands so the result remains visible. A highlighted outline previews the new parent; self, descendant and current-parent targets show inline errors and reject the drop. Sibling top/bottom quarters retain insertion markers for reordering. Root dragging remains disabled, while single children can now move. Escape, outside drops, blur and map changes cancel previews. Layout transitions take 200ms, and connectors reattach when branches switch sides. Moves push a snapshot and use the existing serialized save queue with stable insertion anchors and one stale-revision retry. Failed moves restore the persisted tree and show a toast for three seconds or until the next interaction; dragging again retries the operation. Deleted-map errors retain the existing navigation behavior.
+
+All 100 automated tests passed across 11 files, including 100 generated branch moves, invalid targets, snapshot/subtree preservation, conflict rebasing, concurrent saves, rollback, inline indicators and exact toast dismissal timing. Real Chrome checks passed root and singleton destinations, collapsed-parent expansion, invalid targets, cancellation, JSON persistence after reload, connector placement, save failure rollback and stale-revision recovery, plus the sibling-reordering regression checks. A 500-node map with all 499 connectors rendered in 352ms with no measured label overlaps. The production build passed. Docker Compose verification passed the build, static assets, SPA routing, API, duplication, sibling order, moved subtree in bind-mounted JSON after restart/recreation, trash and restoration. Tasks 18–22 remain deferred.
 
 ---
 

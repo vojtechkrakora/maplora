@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { siblingDropTarget } from "../../src/client/reorder";
+import { branchDropTarget, siblingDropTarget } from "../../src/client/reorder";
 import { fixture } from "../fixtures";
 
 function setup() {
@@ -47,6 +47,49 @@ it("finds insertion slots on both sides of a bilateral root", () => {
     placement: "before",
     index: 1,
   });
+});
+it("uses sibling centres for new parents and retains insertion slots near sibling edges", () => {
+  const { map, positions } = setup();
+  const target = (x: number, y: number, id = "a") =>
+    branchDropTarget(map, id, { x, y }, positions, new Map());
+  expect(target(-200, 27)).toEqual({ kind: "move", parentId: "b" });
+  expect(target(230, 160)).toEqual({
+    kind: "reorder",
+    siblingId: "c",
+    placement: "after",
+    index: 2,
+  });
+  expect(target(-200, 10)).toBeNull();
+  expect(target(20, 27, "descendant")).toEqual({
+    kind: "move",
+    parentId: map.root.id,
+  });
+  expect(target(1000, 1000)).toBeNull();
+});
+it("identifies self, descendant and same-parent drop errors inline", () => {
+  const { map, positions } = setup();
+  for (const [point, nodeId, message] of [
+    [{ x: 230, y: 27 }, "a", "itself"],
+    [{ x: 450, y: 27 }, "descendant", "descendants"],
+    [{ x: 20, y: 27 }, map.root.id, "already under"],
+  ] as const) {
+    expect(
+      branchDropTarget(map, "a", point, positions, new Map()),
+    ).toMatchObject({
+      kind: "invalid",
+      nodeId,
+      message: expect.stringContaining(message),
+    });
+  }
+  expect(
+    branchDropTarget(
+      map,
+      map.root.id,
+      { x: -200, y: 27 },
+      positions,
+      new Map(),
+    ),
+  ).toBeNull();
 });
 it("rejects empty canvas, parent, descendants, root dragging, and unchanged order", () => {
   const { map, target } = setup();

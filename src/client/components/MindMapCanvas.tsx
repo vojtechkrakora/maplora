@@ -23,7 +23,7 @@ import {
   type Point,
   type Size,
 } from "../layout";
-import { siblingDropTarget, type SiblingDropTarget } from "../reorder";
+import { branchDropTarget, type BranchDropTarget } from "../reorder";
 import { Link } from "react-router-dom";
 import { handleEditorKey } from "../keyboard";
 import { Dialog } from "./Dialog";
@@ -155,19 +155,31 @@ export function MindMapEdge(props: EdgeProps) {
 }
 const nodeTypes = { mindmap: MindMapNode },
   edgeTypes = { mindmap: MindMapEdge };
-interface ReorderDrag {
+interface BranchDrag {
   id: string;
   source: MapFile;
   position: Point;
-  target: SiblingDropTarget | null;
+  target: BranchDropTarget | null;
+}
+function dropDescription(target: BranchDropTarget | null, nodes: MapNode[]) {
+  if (!target)
+    return "Drop on a node to move, or near a sibling edge to reorder";
+  if (target.kind === "invalid") return target.message;
+  if (target.kind === "move")
+    return `Drop to move under “${nodes.find((node) => node.id === target.parentId)?.text}”`;
+  return `Drop ${target.placement} “${nodes.find((node) => node.id === target.siblingId)?.text}”`;
 }
 export function MindMapCanvas() {
   const s = useEditorStore(),
     flow = useReactFlow(),
     [help, setHelp] = useState(false),
     [sizes, setSizes] = useState(new Map<string, Size>()),
-    [drag, setDrag] = useState<ReorderDrag | null>(null);
-  const dragRef = useRef<ReorderDrag | null>(null);
+    [drag, setDrag] = useState<BranchDrag | null>(null),
+    [invalidDrop, setInvalidDrop] = useState<Extract<
+      BranchDropTarget,
+      { kind: "invalid" }
+    > | null>(null);
+  const dragRef = useRef<BranchDrag | null>(null);
   const measurement = useRef<HTMLDivElement>(null),
     canvas = useRef<HTMLDivElement>(null);
   const map = useMemo(() => {
@@ -221,6 +233,26 @@ export function MindMapCanvas() {
     setDrag(null);
   }
   useEffect(() => {
+    if (!s.moveError) return;
+    const dismiss = () => s.dismissMoveError();
+    const timer = window.setTimeout(dismiss, 3000);
+    window.addEventListener("pointerdown", dismiss, true);
+    window.addEventListener("keydown", dismiss, true);
+    window.addEventListener("wheel", dismiss, true);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("pointerdown", dismiss, true);
+      window.removeEventListener("keydown", dismiss, true);
+      window.removeEventListener("wheel", dismiss, true);
+    };
+  }, [s.moveError, s.dismissMoveError]);
+  useEffect(() => {
+    if (!invalidDrop) return;
+    const timer = window.setTimeout(() => setInvalidDrop(null), 3000);
+    return () => window.clearTimeout(timer);
+  }, [invalidDrop]);
+  useEffect(() => setInvalidDrop(null), [s.map]);
+  useEffect(() => {
     const cancel = (event: KeyboardEvent) => {
       if (event.key === "Escape" && dragRef.current) {
         event.preventDefault();
@@ -247,7 +279,7 @@ export function MindMapCanvas() {
     )
       cancelDrag();
   }, [s.map, s.editingNodeId]);
-  function dropTarget(event: MouseEvent | TouchEvent, current: ReorderDrag) {
+  function dropTarget(event: MouseEvent | TouchEvent, current: BranchDrag) {
     const pointer =
       "changedTouches" in event
         ? (event.changedTouches[0] ?? event.touches[0])
@@ -268,10 +300,12 @@ export function MindMapCanvas() {
       pointer.clientY,
     );
     if (
-      element?.closest(".editor-toolbar,.node-tools,.zoom-tools,[role=dialog]")
+      element?.closest(
+        ".editor-toolbar,.node-tools,.zoom-tools,.canvas-alert,[role=dialog]",
+      )
     )
       return null;
-    return siblingDropTarget(
+    return branchDropTarget(
       current.source,
       current.id,
       flow.screenToFlowPosition({ x: pointer.clientX, y: pointer.clientY }),
@@ -282,14 +316,7 @@ export function MindMapCanvas() {
   const startDrag: OnNodeDrag<MindNode> = (_event, node) => {
     const source = useEditorStore.getState().map;
     const parent = source && findParent(source.root, node.id);
-    if (
-      !source ||
-      !parent ||
-      parent.children.length < 2 ||
-      s.editingNodeId ||
-      s.draft
-    )
-      return;
+    if (!source || !parent || s.editingNodeId || s.draft) return;
     const current = {
       id: node.id,
       source,
@@ -297,6 +324,7 @@ export function MindMapCanvas() {
       target: null,
     };
     dragRef.current = current;
+    setInvalidDrop(null);
     setDrag(current);
     s.select(node.id);
     canvas.current?.focus();
@@ -322,7 +350,14 @@ export function MindMapCanvas() {
     )
       return;
     const target = dropTarget(event, current);
-    if (target) void s.reorderNode(node.id, target.index);
+    if (target?.kind === "reorder") void s.reorderNode(node.id, target.index);
+    if (target?.kind === "move") {
+      const parent = allNodes(current.source.root).find(
+        (n) => n.id === target.parentId,
+      )!;
+      void s.moveNode(node.id, parent.id, parent.children.length);
+    }
+    if (target?.kind === "invalid") setInvalidDrop(target);
   };
   const changeNodes = (changes: NodeChange<MindNode>[]) => {
     const current = dragRef.current;
@@ -361,15 +396,20 @@ export function MindMapCanvas() {
         : (positions.get(node.id) ?? { x: 0, y: 0 }),
     draggable:
       node !== map!.root &&
-      (findParent(map!.root, node.id)?.children.length ?? 0) > 1 &&
       !s.editingNodeId &&
       !s.draft &&
       s.saving !== "saving",
     dragging: drag?.id === node.id,
-    className:
-      drag?.target?.siblingId === node.id
-        ? `reorder-${drag.target.placement}`
-        : undefined,
+    className: (() => {
+      const target = drag?.target ?? invalidDrop;
+      if (target?.kind === "reorder" && target.siblingId === node.id)
+        return `reorder-${target.placement}`;
+      if (target?.kind === "move" && target.parentId === node.id)
+        return "branch-drop-target";
+      if (target?.kind === "invalid" && target.nodeId === node.id)
+        return "branch-drop-invalid";
+      return undefined;
+    })(),
     // React Flow remeasures handle bounds when a reorder switches tree sides.
     sourcePosition:
       (positions.get(node.id)?.x ?? 0) < 0 ? Position.Left : Position.Right,
@@ -442,7 +482,9 @@ export function MindMapCanvas() {
       ref={canvas}
       tabIndex={0}
       aria-label="Mind map editor"
+      onPointerDownCapture={() => setInvalidDrop(null)}
       onKeyDown={(e) => {
+        setInvalidDrop(null);
         if (dragRef.current) return;
         if (!(e.target as HTMLElement).closest("button"))
           handleEditorKey(e.nativeEvent, s, remove, () => setHelp(true));
@@ -504,6 +546,20 @@ export function MindMapCanvas() {
           )}
         </div>
       )}
+      {s.moveError && (
+        <div
+          className="canvas-alert error-banner move-error-toast"
+          role="alert"
+        >
+          {s.moveError}
+          <button
+            aria-label="Dismiss move error"
+            onClick={() => s.dismissMoveError()}
+          >
+            ×
+          </button>
+        </div>
+      )}
       {allNodes(map.root).length > 500 && (
         <p className="performance-warning" role="status">
           This map has more than 500 nodes. Editing may be slower.
@@ -545,12 +601,17 @@ export function MindMapCanvas() {
       >
         <Background gap={24} size={1} color="var(--grid)" />
       </ReactFlow>
-      {drag && (
-        <div className="reorder-hint" role="status">
-          {drag.target
-            ? `Drop ${drag.target.placement} “${visible.find((node) => node.id === drag.target!.siblingId)?.text}”`
-            : "Drag to the top or bottom of a sibling to reorder"}
-          <span> · Escape to cancel</span>
+      {(drag || invalidDrop) && (
+        <div
+          className={`reorder-hint ${(drag?.target ?? invalidDrop)?.kind === "invalid" ? "invalid-drop-hint" : ""}`}
+          role={
+            (drag?.target ?? invalidDrop)?.kind === "invalid"
+              ? "alert"
+              : "status"
+          }
+        >
+          {dropDescription(drag?.target ?? invalidDrop, visible)}
+          {drag && <span> · Escape to cancel</span>}
         </div>
       )}
       <div className="node-tools" aria-label="Node actions">

@@ -570,6 +570,22 @@ label {
 .reorder-hint span {
   color: var(--muted);
 }
+.branch-drop-target .mind-node {
+  outline: 3px solid var(--accent);
+  outline-offset: 5px;
+}
+.branch-drop-invalid .mind-node {
+  outline: 3px solid #bd534b;
+  outline-offset: 5px;
+}
+.invalid-drop-hint {
+  color: #bd534b;
+  border-color: currentColor;
+}
+.move-error-toast {
+  top: auto;
+  bottom: 88px;
+}
 .react-flow__edge-path {
   transition: d 200ms ease-in-out;
 }

@@ -71,7 +71,14 @@ try {
       id: "12345678-1234-4234-8234-123456789099",
       text: "Survives recreation",
       collapsed: false,
-      children: [],
+      children: [
+        {
+          id: "12345678-1234-4234-8234-123456789097",
+          text: "Moves with its parent",
+          collapsed: false,
+          children: [],
+        },
+      ],
     },
     {
       id: "12345678-1234-4234-8234-123456789098",
@@ -88,6 +95,16 @@ try {
   assert.deepEqual(
     map.root.children.map((node) => node.text),
     ["Reordered sibling", "Survives recreation"],
+  );
+  const branch = map.root.children.pop();
+  map.root.children[0].children.push(branch);
+  map = await request(`/api/maps/${summary.id}`, "PUT", map);
+  assert.equal(map.revision, 4);
+  assert.equal(map.root.children.length, 1);
+  assert.deepEqual(map.root.children[0].children[0], branch);
+  assert.equal(
+    map.root.children[0].children[0].children[0].text,
+    "Moves with its parent",
   );
   assert.deepEqual(
     JSON.parse(await readFile(path.join(directory, `${map.id}.json`), "utf8")),
@@ -118,7 +135,7 @@ try {
   await request(`/api/trash/${map.id}/restore`, "POST");
   assert.deepEqual(await request(`/api/maps/${map.id}`), map);
   console.log(
-    "PASS: Compose build, static assets, SPA fallback, API, duplication, sibling order, bind-mounted JSON, restart, recreation, trash and restoration.",
+    "PASS: Compose build, static assets, SPA fallback, API, duplication, sibling order, branch moves, bind-mounted JSON, restart, recreation, trash and restoration.",
   );
 } finally {
   await compose("down", "--remove-orphans");

@@ -36,11 +36,12 @@ The application has no authentication. Deploy it within a trusted private networ
 - Create, rename, duplicate, and open maps from the home screen. Titles accept 1–100 characters.
 - **Duplicate** creates an independent copy with fresh map and node IDs, a new creation time, and revision 1. Its title ends in “ (Copy)”; long source titles are shortened to keep the result within 100 characters. Labels, branch order, collapse states, and stored styles are preserved.
 - Select a node and use the floating toolbar, double-click, or keyboard shortcuts. Node labels accept 1–200 characters.
-- Changes save automatically. The toolbar reports saving, saved, and failed states. Failed mutations roll back and offer **Retry change**.
+- Changes save automatically. The toolbar reports saving, saved, and failed states. Failed mutations roll back and offer **Retry change**, except branch moves, which show a temporary error and can be dragged again.
 - A new node is a local draft until you confirm its text. Escape or an empty draft cancels it without a write.
 - Branches arrange themselves on both sides of the root. Collapse controls hide descendants while preserving their individual collapse states.
-- Reorder a selected sibling with **Alt+Up / Alt+Down**, or drag it onto the upper/lower half of another sibling to insert before/after it. A line marks the insertion point. Escape or a drop outside a valid sibling cancels without saving. A failed save restores the previous order and offers retry.
+- Reorder a selected sibling with **Alt+Up / Alt+Down**, or drag it onto the top/bottom quarter of another sibling to insert before/after it. A line marks the insertion point. A failed save restores the previous order and offers retry.
 - Sibling reordering preserves each branch's contents and parent. Reordering root children can switch their side because the layout alternates right and left.
+- Move a branch by dragging onto the centre of its new parent. A highlighted outline marks the destination, which expands after the move. The complete subtree, IDs, and stored styles are preserved. The root cannot be moved; self, descendant, and current-parent targets show an inline error. Escape or a drop outside valid targets cancels without saving. A failed save restores the previous tree and shows an error for three seconds or until the next interaction; drag again to retry.
 - Drag the canvas to pan. Scroll to zoom around the cursor. Zoom buttons adjust by 10 percentage points, bounded at 10%–200%; **Fit to screen** adjusts the viewport.
 
 | Key | Action |
@@ -92,9 +93,9 @@ The Compose verification requires a working local Docker daemon. It uses a separ
 
 ## Scope and limitations
 
-This implements MVP tasks 1–14, post-MVP tasks 15–16 (duplicate maps and reorder siblings), and the Docker verification checkpoint in the Kiro plan. Tasks and test coverage are tracked in `.kiro/specs/maplora/tasks.md`. The bounded snapshot infrastructure requested by task 9.1 is present; undo/redo controls and shortcuts are intentionally deferred with task 22.
+This implements MVP tasks 1–14, post-MVP tasks 15–17 (duplicate maps, reorder siblings, and move branches), and the Docker verification checkpoint in the Kiro plan. Tasks and test coverage are tracked in `.kiro/specs/maplora/tasks.md`. The bounded snapshot infrastructure requested by task 9.1 is present; undo/redo controls and shortcuts are intentionally deferred with task 22.
 
-Moving branches to a different parent, custom styles, manual theme switching, import/export, PNG export, and undo/redo remain deferred to tasks 17–22. The UI follows the system color scheme. Schema v1 is the only supported version; a migration registry is ready for future versions, but no fictional older format is accepted.
+Custom styles, manual theme switching, import/export, PNG export, and undo/redo remain deferred to tasks 18–22. The UI follows the system color scheme. Schema v1 is the only supported version; a migration registry is ready for future versions, but no fictional older format is accepted.
 
 Maps above 500 nodes show a performance warning. Measurements and layout run synchronously as specified by the approved `useMemo` implementation; unusually large maps can exceed the stated responsiveness targets. Multi-tab edits retry once; an operation whose target was deleted in another tab fails visibly rather than recreating it. Multi-process writers and external edits during use are unsupported.
 

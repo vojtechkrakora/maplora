@@ -1,5 +1,5 @@
 import type { MapFile } from "../shared/schema.js";
-import { allNodes, findParent } from "../shared/tree.js";
+import { allNodes, branchMoveError, findParent } from "../shared/tree.js";
 import { DEFAULT_SIZE, type Point, type Size } from "./layout";
 
 export interface SiblingDropTarget {
@@ -29,7 +29,7 @@ export function siblingDropTarget(
     point.y >= rect.y - padding &&
     point.y <= rect.y + rect.height + padding;
   const siblingIds = new Set(siblings.map((node) => node.id));
-  // Reparenting is a later task: dropping on any other branch is invalid.
+  // Only sibling slots are considered by the reorder gesture.
   for (const node of allNodes(map.root, true)) {
     const rect = box(node.id);
     if (node.id !== id && !siblingIds.has(node.id) && rect && contains(rect))
@@ -64,4 +64,48 @@ export function siblingDropTarget(
     placement: target.placement,
     index: target.index,
   };
+}
+
+export type BranchDropTarget =
+  | ({ kind: "reorder" } & SiblingDropTarget)
+  | { kind: "move"; parentId: string }
+  | { kind: "invalid"; nodeId: string; message: string };
+
+/** Node centres move branches; sibling edges retain the reorder gesture. */
+export function branchDropTarget(
+  map: MapFile,
+  id: string,
+  point: Point,
+  positions: Map<string, Point>,
+  sizes: Map<string, Size>,
+): BranchDropTarget | null {
+  const parent = findParent(map.root, id);
+  if (!parent) return null;
+  for (const node of allNodes(map.root, true)) {
+    const position = positions.get(node.id);
+    if (!position) continue;
+    const size = sizes.get(node.id) ?? DEFAULT_SIZE;
+    if (
+      point.x < position.x ||
+      point.x > position.x + size.width ||
+      point.y < position.y ||
+      point.y > position.y + size.height
+    )
+      continue;
+    const ratio = (point.y - position.y) / size.height;
+    if (
+      parent.children.some((sibling) => sibling.id === node.id) &&
+      node.id !== id &&
+      (ratio < 0.25 || ratio > 0.75)
+    ) {
+      const target = siblingDropTarget(map, id, point, positions, sizes);
+      return target && { kind: "reorder", ...target };
+    }
+    const error = branchMoveError(map.root, id, node.id);
+    return error
+      ? { kind: "invalid", nodeId: node.id, message: error }
+      : { kind: "move", parentId: node.id };
+  }
+  const target = siblingDropTarget(map, id, point, positions, sizes);
+  return target && { kind: "reorder", ...target };
 }

@@ -6,13 +6,20 @@ import {
   type MapFile,
   type MapNode,
 } from "../../shared/schema.js";
-import { findNode, findParent } from "../../shared/tree.js";
+import { branchMoveError, findNode, findParent } from "../../shared/tree.js";
 export type NodeOperation =
   | { kind: "add"; parentId: string; node: MapNode; afterId?: string }
   | { kind: "edit"; id: string; text: string }
   | { kind: "delete"; id: string }
   | { kind: "collapse"; id: string; collapsed: boolean }
-  | { kind: "reorder"; id: string; parentId: string; beforeId: string | null };
+  | { kind: "reorder"; id: string; parentId: string; beforeId: string | null }
+  | {
+      kind: "move";
+      id: string;
+      parentId: string;
+      newParentId: string;
+      beforeId: string | null;
+    };
 export function applyOperation(source: MapFile, op: NodeOperation): MapFile {
   const map = structuredClone(source);
   if (op.kind === "add") {
@@ -40,6 +47,24 @@ export function applyOperation(source: MapFile, op: NodeOperation): MapFile {
         : parent.children.findIndex((child) => child.id === op.beforeId);
     if (target < 0) throw new Error("The target sibling no longer exists.");
     parent.children.splice(target, 0, node);
+  } else if (op.kind === "move") {
+    const error = branchMoveError(map.root, op.id, op.newParentId);
+    if (error) throw new Error(error);
+    const parent = findParent(map.root, op.id)!;
+    if (parent.id !== op.parentId)
+      throw new Error("The branch is no longer under its original parent.");
+    const newParent = findNode(map.root, op.newParentId)!;
+    const target =
+      op.beforeId === null
+        ? newParent.children.length
+        : newParent.children.findIndex((node) => node.id === op.beforeId);
+    if (target < 0) throw new Error("The target sibling no longer exists.");
+    const [node] = parent.children.splice(
+      parent.children.findIndex((n) => n.id === op.id),
+      1,
+    );
+    newParent.children.splice(target, 0, node);
+    newParent.collapsed = false;
   } else {
     const node = findNode(map.root, op.id);
     if (!node) throw new Error("The node no longer exists.");
@@ -64,6 +89,7 @@ export interface EditorState {
   saving: "idle" | "saving" | "error";
   error: string | null;
   notice: string | null;
+  moveError: string | null;
   loading: boolean;
   gone: boolean;
   undoStack: MapFile[];
@@ -78,6 +104,8 @@ export interface EditorState {
   deleteNode(id: string): Promise<boolean>;
   toggleCollapse(id: string): Promise<boolean>;
   reorderNode(id: string, newIndex: number): Promise<boolean>;
+  moveNode(id: string, newParentId: string, index: number): Promise<boolean>;
+  dismissMoveError(): void;
 }
 export function createEditorStore(
   service: Pick<typeof api, "fetchMap" | "saveMap"> = api,
@@ -139,15 +167,25 @@ export function createEditorStore(
         } catch (error) {
           if (currentGeneration !== generation) break;
           pending.shift();
-          failed = item.operation;
           project();
-          set({
-            error: `Change could not be saved: ${(error as Error).message}`,
-            saving: "error",
-            gone:
-              error instanceof api.ApiError &&
-              [404, 410].includes(error.status),
-          });
+          const gone =
+            error instanceof api.ApiError && [404, 410].includes(error.status);
+          if (item.operation.kind === "move" && !gone) {
+            failed = null;
+            set({
+              moveError: `Branch could not be moved: ${(error as Error).message}`,
+              error: null,
+              notice: null,
+              saving: pending.length ? "saving" : "idle",
+            });
+          } else {
+            failed = item.operation;
+            set({
+              error: `Change could not be saved: ${(error as Error).message}`,
+              saving: "error",
+              gone,
+            });
+          }
           item.resolve(false);
         }
       }
@@ -166,6 +204,7 @@ export function createEditorStore(
         redoStack: [],
         error: null,
         notice: null,
+        moveError: null,
         saving: "saving",
       }));
       failed = null;
@@ -183,6 +222,7 @@ export function createEditorStore(
       saving: "idle",
       error: null,
       notice: null,
+      moveError: null,
       loading: false,
       gone: false,
       undoStack: [],
@@ -201,6 +241,7 @@ export function createEditorStore(
           draft: null,
           error: null,
           notice: null,
+          moveError: null,
           gone: false,
           saving: "idle",
           undoStack: [],
@@ -321,6 +362,30 @@ export function createEditorStore(
           parentId: parent.id,
           beforeId: siblings[newIndex]?.id ?? null,
         });
+      },
+      async moveNode(id, newParentId, index) {
+        const { map, draft, editingNodeId } = get();
+        if (
+          !map ||
+          draft ||
+          editingNodeId ||
+          !Number.isInteger(index) ||
+          branchMoveError(map.root, id, newParentId)
+        )
+          return false;
+        const parent = findParent(map.root, id)!;
+        const newParent = findNode(map.root, newParentId)!;
+        if (index < 0 || index > newParent.children.length) return false;
+        return enqueue({
+          kind: "move",
+          id,
+          parentId: parent.id,
+          newParentId,
+          beforeId: newParent.children[index]?.id ?? null,
+        });
+      },
+      dismissMoveError() {
+        set({ moveError: null });
       },
     };
   });
