@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import * as api from "../api";
+import { useRecentMapsStore } from "../recentMapsStore";
 import {
   TagsSchema,
   type MapFile,
@@ -102,7 +103,9 @@ export const useMapListStore = create<MapListState>((set, get) => ({
   async fetchMaps() {
     set({ loading: true, error: null });
     try {
-      set({ maps: await api.fetchMaps() });
+      const maps = await api.fetchMaps();
+      useRecentMapsStore.getState().reconcileMaps(maps);
+      set({ maps });
     } catch (e) {
       set({ error: (e as Error).message });
     } finally {
@@ -116,10 +119,18 @@ export const useMapListStore = create<MapListState>((set, get) => ({
   },
   async renameMap(id, title) {
     const m = await api.renameMap(id, title);
+    useRecentMapsStore
+      .getState()
+      .reconcileMaps(
+        useRecentMapsStore
+          .getState()
+          .maps.map((map) => (map.id === id ? m : map)),
+      );
     set((s) => ({ maps: [m, ...s.maps.filter((x) => x.id !== id)] }));
   },
   async deleteMap(id) {
     await api.deleteMap(id);
+    useRecentMapsStore.getState().removeRecentMap(id);
     set((s) => ({ maps: s.maps.filter((x) => x.id !== id) }));
   },
   async duplicateMap(id) {

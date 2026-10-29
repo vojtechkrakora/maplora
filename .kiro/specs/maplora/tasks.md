@@ -569,8 +569,8 @@ MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Po
     - Test that the background and foreground values are valid CSS color strings
     - _Requirements: 28.16, 28.17, 28.18_
 
-- [ ] 31. Recently opened maps bar (Post-MVP)
-  - [ ]* 31.1 Implement recently opened maps tracking in a session store
+- [x] 31. Recently opened maps bar (Post-MVP)
+  - [x]* 31.1 Implement recently opened maps tracking in a session store
     - Create `src/client/recentMapsStore.ts` (a Zustand store or a simple module-level array)
     - `addRecentMap(summary: MapSummary)`: prepends the map to the list; removes any existing entry with the same Map ID; truncates the list to 5 entries; does not persist to localStorage or sessionStorage
     - `getRecentMaps(currentMapId: string): MapSummary[]`: returns the list with the current map excluded
@@ -578,15 +578,15 @@ MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Po
     - WHEN a map is opened in `EditorPage` (on `loadMap()` success), call `addRecentMap()` with the loaded map's summary
     - _Requirements: 29.1, 29.2, 29.3, 29.5, 29.8_
 
-  - [ ]* 31.2 Render the recently opened maps bar in `EditorToolbar`
+  - [x]* 31.2 Render the recently opened maps bar in `EditorToolbar`
     - Display `getRecentMaps(currentMapId)` as a horizontal list of clickable map title chips in `EditorToolbar`
     - WHEN the user clicks a recent map chip, navigate to `/maps/{mapId}` (React Router `navigate`)
     - IF the list is empty, hide the bar entirely (no placeholder text in the toolbar)
     - Truncate long titles with an ellipsis (`text-overflow: ellipsis`) to prevent toolbar overflow
-    - IF a map in the recent list is opened and then deleted, it will be absent from the list on the next render because the store is not updated on deletion (the entry is simply stale; navigating to a deleted map will show the existing "map not found" error and return to the list)
+    - Reconcile recent entries on successful library refreshes and remove them after successful trash operations. If a recent target returns 404/410 when opened, remove it and return quietly to the library, as required by Requirement 29.7; retain normal feedback for other errors
     - _Requirements: 29.4, 29.5, 29.6, 29.7, 29.9_
 
-  - [ ]* 31.3 Write unit and component tests for the recently opened maps bar
+  - [x]* 31.3 Write unit and component tests for the recently opened maps bar
     - Unit (`recentMapsStore`): adding 6 maps keeps only the 5 most recent; adding a duplicate Map ID moves it to the front; `getRecentMaps` excludes the current map; store resets between test runs (module re-import)
     - Component: after opening map A then map B, the toolbar shows map A as a recent chip; current map B is not shown; clicking map A chip triggers navigation; bar is hidden when no recent maps exist
     - _Requirements: 29.1, 29.3, 29.4, 29.5, 29.9_
@@ -728,6 +728,16 @@ Task 30 implemented on 2026-10-29: the pure `tagColor(tag)` helper hashes the ex
 The existing `MapTags` and `TagFilter` components apply these colors to card chips, assigned tags in the management dialog and clickable filter choices. Selected filter choices keep their color and add an outline alongside the checked checkbox. Removal buttons inherit the contrasting foreground; the extra-tag count badge remains neutral. No map schema, API, dependency or stored color metadata is added. README and architecture/product notes describe the behavior; task 31 remains deferred.
 
 All 355 automated tests passed across 30 files, including seven new helper cases for fixed stable mappings, eleven distinct varied names, exact string handling, 100 generated CSS/determinism cases and all 360 hues' contrast, plus a new component case covering shared colors across cards, management and selected filters in both themes. Existing add-tag and overflow-count tests also verify immediate colors and neutral counts. Production build and formatting checks passed. Real Chrome verified computed card/dialog/filter colors and text contrast in both themes; contrasting removal icons; keyboard/AND filtering and selected outlines; neutral counts; Unicode/32-character tags; 320–1440px layouts; reload and fresh-session consistency; unchanged files and no display-only requests; immediate coloring after a saved addition without color metadata; and no browser errors. Browser checks used isolated temporary map data. Isolated Docker Compose verification passed the image build, static assets/API, bind-mounted JSON, duplication/import, restart/recreation and trash/restoration.
+
+**Task 31 Implementation Notes**
+
+Task 31 implemented on 2026-10-29: `recentMapsStore.ts` keeps at most five map summaries in reactive module memory. Successful active editor loads prepend the summary, deduplicate by map ID and retain reverse opening order. The current map is excluded from `getRecentMaps()` and the rendered bar, so a full five-entry history shows four earlier maps. Failed and abandoned loads are ignored. Reloading or opening a new tab starts empty; localStorage/sessionStorage, schemas, dependencies and API endpoints are unchanged.
+
+`RecentMapsBar` renders inside the existing canvas toolbar and hides when there are no other entries. Native links navigate through the normal editor route, preserve full accessible titles/tooltips and use ellipsis; the row scrolls horizontally on narrow screens. Its keyboard events do not activate canvas node shortcuts. Navigation is disabled during saving, with a live store guard covering a save started by blurring a text input while clicking a chip.
+
+Successful library refreshes reconcile recent summaries, update titles and remove unavailable entries without changing opening order. Successful renames update titles, successful trash operations remove entries immediately, and failed requests retain history. The original task 31.2 note about retaining stale entries and displaying an error conflicted with Requirement 29.7; it has been corrected to follow the requirement. A recent target returning 404/410 is removed and returns quietly to the library. Other read errors and errors when an already loaded map is deleted during saving retain their normal feedback. External deletions are discovered on the next existing library refresh or attempted open, with no polling or extra requests.
+
+All 372 automated tests passed across 32 files, including 17 new unit/component cases for bounded ordering, duplicates and metadata refresh, filtering without mutation, fresh-module/session reset without storage, successful opens and chip navigation, long titles, StrictMode, abandoned loads, successful/failed delete and refresh, rename updates, quiet 404/410 targets, normal load/save error feedback, saving guards and native keyboard routing. Production build and formatting checks passed. Real Chrome verified ordered chip navigation and keyboard activation without node mutations; full title/ellipsis behavior and both themes at 320–1440px; horizontal scrolling; blur-save navigation protection and persisted text; rename/trash updates; silent externally deleted targets; reload and new-tab reset without storage; unchanged unrelated map files; and no browser errors. Browser checks used isolated temporary map data. Isolated Docker Compose verification passed the image build, static assets/API, bind-mounted JSON, duplication/import, restart/recreation and trash/restoration. All tasks in the current plan are complete.
 
 ## Task Dependency Graph
 

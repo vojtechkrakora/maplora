@@ -755,6 +755,48 @@ label {
   gap: 8px;
   flex-shrink: 0;
 }
+.recent-maps {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  display: flex;
+  align-items: center;
+  width: max-content;
+  max-width: 100%;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.recent-maps-label {
+  font-size: 11px;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.recent-map-links {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+  overflow-x: auto;
+  padding: 6px;
+}
+.recent-map-links a {
+  flex-shrink: 0;
+  max-width: 180px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.recent-map-links a[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: default;
+}
 .theme-toggle,
 .history-button,
 .recentre-root {

@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ReactFlowProvider } from "@xyflow/react";
 import { useEditorStore } from "../stores/editorStore";
 import { MindMapCanvas } from "../components/MindMapCanvas";
+import { addRecentMap, useRecentMapsStore } from "../recentMapsStore";
 export function EditorPage() {
   const { mapId } = useParams(),
     navigate = useNavigate(),
+    location = useLocation(),
     s = useEditorStore();
   const [loadedId, setLoadedId] = useState<string | null>(null);
   useEffect(() => {
@@ -13,16 +15,38 @@ export function EditorPage() {
     setLoadedId(null);
     if (mapId)
       void s.loadMap(mapId).then(() => {
-        if (active) setLoadedId(mapId);
+        if (!active) return;
+        const current = useEditorStore.getState();
+        if (current.map?.id === mapId && !current.loading && !current.error) {
+          const { id, title, tags, updatedAt } = current.map;
+          addRecentMap({ id, title, tags, updatedAt });
+        }
+        setLoadedId(mapId);
       });
     return () => {
       active = false;
     };
   }, [mapId, s.loadMap]);
   useEffect(() => {
-    if (loadedId === mapId && !s.loading && s.error && (!s.map || s.gone))
-      navigate("/", { replace: true, state: { error: s.error } });
-  }, [loadedId, mapId, s.loading, s.error, s.map, s.gone, navigate]);
+    if (loadedId === mapId && !s.loading && s.error && (!s.map || s.gone)) {
+      if (s.gone && mapId) useRecentMapsStore.getState().removeRecentMap(mapId);
+      const missingRecent =
+        !s.map && s.gone && location.state?.recentMapId === mapId;
+      navigate("/", {
+        replace: true,
+        state: missingRecent ? null : { error: s.error },
+      });
+    }
+  }, [
+    loadedId,
+    mapId,
+    s.loading,
+    s.error,
+    s.map,
+    s.gone,
+    navigate,
+    location.state,
+  ]);
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "s")

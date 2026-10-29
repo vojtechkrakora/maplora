@@ -32,6 +32,7 @@ import { CopyMarkdownButton } from "./CopyMarkdownButton";
 import { ExportJsonButton } from "./ExportJsonButton";
 import { ExportPngButton } from "./ExportPngButton";
 import { MindMapEdge } from "./MindMapEdge";
+import { RecentMapsBar } from "./RecentMapsBar";
 export { MindMapEdge } from "./MindMapEdge";
 
 type MindNode = Node<
@@ -677,6 +678,7 @@ export function MindMapCanvas() {
             ? <span className="desktop-label">Shortcuts</span>
           </button>
         </div>
+        <RecentMapsBar currentMapId={map.id} />
       </header>
       {(s.error || s.notice) && (
         <div

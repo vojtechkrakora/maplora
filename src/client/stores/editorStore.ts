@@ -327,6 +327,8 @@ export function createEditorStore(
           if (token === generation)
             set({
               error: `Map could not be read: ${(error as Error).message}`,
+              gone:
+                error instanceof api.ApiError && [404, 410].includes(error.status),
             });
         } finally {
           if (token === generation) set({ loading: false });

@@ -107,7 +107,7 @@ App
 │   ├── MapCard[]    (title, timestamp, tag chips / management, rename / delete actions)
 │   └── EmptyState
 ├── EditorPage
-│   ├── EditorToolbar (title, zoom controls, export, undo/redo)
+│   ├── EditorToolbar (title, zoom controls, export, undo/redo, recent maps)
 │   ├── MindMapCanvas
 │   │   ├── ReactFlow (pan/zoom provider)
 │   │   │   ├── MindMapNode[] (rendered as React Flow custom nodes)
@@ -121,7 +121,7 @@ App
 
 ### State management
 
-Two Zustand stores:
+Map state uses the following Zustand stores:
 
 **`mapListStore`** — list screen state
 ```typescript
@@ -146,6 +146,14 @@ interface MapListState {
 The tag management dialog on each card uses a native datalist for alphabetically sorted suggestions from the complete loaded library, filtered by input. Successful saves replace only the returned summary in memory; failed saves retain the existing tags and entered text for retry. Cards display the first five tags plus a count of the remainder. The tag filter uses checkbox selections with AND semantics and a clear-all action. Search, tag selection and sort never refetch the list. Import clears search and tag filters so the imported card stays visible.
 
 Tag display colors come from the pure client helper `tagColor(tag)` in `src/client/tagColor.ts`. An unsigned 32-bit djb2 hash of the exact UTF-16 string selects a hue from 0–359 at fixed 60% saturation and 45% lightness. The helper converts to opaque sRGB hex and selects black or white text by comparing WCAG contrast ratios using the rounded background's relative luminance. Every generated hue has at least 4.5:1 text contrast. The same inline colors appear on card chips, assigned-tag chips and filter choices in either theme, without storage, API calls or schema changes. Selected filter choices retain their color and add an outline alongside their checked checkbox; the extra-tag count badge remains neutral.
+
+**`recentMapsStore`** — recently opened maps in module memory
+
+`src/client/recentMapsStore.ts` exposes `addRecentMap(summary)` and `getRecentMaps(currentMapId)`, backed by a reactive Zustand store. After a successful active `EditorPage` load, the map summary is prepended, any older occurrence of its ID is removed, and the list is truncated to five entries including the current map. Failed and abandoned loads do not enter history. No browser storage, schema changes or extra API requests are required; reloads and new tabs start empty.
+
+`RecentMapsBar` renders inside the existing canvas toolbar, omitting the current map and hiding when no others remain. Native links load each target through the normal editor route. Titles use ellipsis with full accessible names/tooltips, and the row scrolls horizontally on narrow screens. Chip key events do not trigger canvas node shortcuts, while document-level Ctrl+S remains available. Navigation is disabled during saving, including a save started when clicking a chip blurs a text input.
+
+Successful library refreshes reconcile known summaries, retaining opening order while updating titles and pruning unavailable maps. Successful renames refresh recent titles and successful trash operations remove entries; failed requests leave history intact. A recent link whose normal map load returns 404/410 is removed and returns quietly to the library, satisfying Requirement 29.7. Other read errors and errors when an already loaded map disappears during saving retain their existing error feedback. Deletions outside this app are discovered on the next library refresh or attempted open; there is no polling.
 
 **`editorStore`** — editor state (loaded when EditorPage mounts)
 ```typescript
