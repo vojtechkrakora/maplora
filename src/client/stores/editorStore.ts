@@ -8,11 +8,19 @@ import {
   type MapNode,
   type NodeStyle,
 } from "../../shared/schema.js";
-import { branchMoveError, findNode, findParent } from "../../shared/tree.js";
+import {
+  allNodes,
+  branchMoveError,
+  findNode,
+  findParent,
+} from "../../shared/tree.js";
+import { sameSubtree, snapshotSubtree } from "../subtreeClipboard";
 export type NodeOperation =
   | { kind: "add"; parentId: string; node: MapNode; afterId?: string }
   | { kind: "edit"; id: string; text: string }
   | { kind: "delete"; id: string }
+  | { kind: "cut"; id: string; expectedSubtree: MapNode }
+  | { kind: "paste"; parentId: string; subtree: MapNode }
   | { kind: "collapse"; id: string; collapsed: boolean }
   | { kind: "style"; id: string; style: Partial<NodeStyle> }
   | { kind: "reorder"; id: string; parentId: string; beforeId: string | null }
@@ -35,6 +43,31 @@ export function applyOperation(source: MapFile, op: NodeOperation): MapFile {
       parent.children.splice(index, 0, structuredClone(op.node));
       parent.collapsed = false;
     }
+  } else if (op.kind === "cut") {
+    if (op.id === map.root.id)
+      throw new Error("The root cannot be cut. Copy it instead.");
+    const node = findNode(map.root, op.id);
+    const parent = findParent(map.root, op.id);
+    if (!node || !parent)
+      throw new Error("The captured branch no longer exists.");
+    if (!sameSubtree(node, op.expectedSubtree))
+      throw new Error(
+        "The branch changed after capture; its newer content was kept.",
+      );
+    parent.children = parent.children.filter((child) => child.id !== op.id);
+  } else if (op.kind === "paste") {
+    const parent = findNode(map.root, op.parentId);
+    if (!parent) throw new Error("The paste destination no longer exists.");
+    const subtree = snapshotSubtree(op.subtree);
+    const ids = new Set(
+      allNodes(map.root).map((node) => node.id.toLowerCase()),
+    );
+    if (allNodes(subtree).some((node) => ids.has(node.id.toLowerCase())))
+      throw new Error(
+        "A pasted node ID already exists in this map. Paste again for fresh IDs.",
+      );
+    parent.children.push(subtree);
+    parent.collapsed = false;
   } else if (op.kind === "delete") {
     const parent = findParent(map.root, op.id);
     if (parent) parent.children = parent.children.filter((n) => n.id !== op.id);
@@ -138,6 +171,8 @@ export interface EditorState {
   addNode(parentId: string, afterId?: string): void;
   editNodeText(id: string, text: string): Promise<boolean>;
   deleteNode(id: string): Promise<boolean>;
+  cutSubtree(id: string, expectedSubtree: MapNode): Promise<boolean>;
+  pasteSubtree(parentId: string, subtree: MapNode): Promise<boolean>;
   toggleCollapse(id: string): Promise<boolean>;
   reorderNode(id: string, newIndex: number): Promise<boolean>;
   moveNode(id: string, newParentId: string, index: number): Promise<boolean>;
@@ -251,7 +286,7 @@ export function createEditorStore(
           } else {
             failed = item.operation;
             set({
-              error: `Change could not be saved: ${(error as Error).message}`,
+              error: `${item.operation.kind === "cut" ? "Branch removal failed; the clipboard remains usable as a copy" : "Change could not be saved"}: ${(error as Error).message}`,
               saving: "error",
               gone,
             });
@@ -280,6 +315,10 @@ export function createEditorStore(
       return new Promise((resolve) => {
         pending.push({ operation, resolve });
         project();
+        if (operation.kind === "paste")
+          set({ selectedNodeId: operation.subtree.id });
+        if (operation.kind === "cut")
+          set({ selectedNodeId: findParent(current.root, operation.id)!.id });
         void pump();
       });
     }
@@ -328,7 +367,8 @@ export function createEditorStore(
             set({
               error: `Map could not be read: ${(error as Error).message}`,
               gone:
-                error instanceof api.ApiError && [404, 410].includes(error.status),
+                error instanceof api.ApiError &&
+                [404, 410].includes(error.status),
             });
         } finally {
           if (token === generation) set({ loading: false });
@@ -341,7 +381,7 @@ export function createEditorStore(
             return await enqueue(op);
           } catch (error) {
             set({
-              error: `Change could not be saved: ${(error as Error).message}`,
+              error: `${op.kind === "cut" ? "Branch removal failed; the clipboard remains usable as a copy" : "Change could not be saved"}: ${(error as Error).message}`,
               saving: "error",
             });
             return false;
@@ -418,6 +458,48 @@ export function createEditorStore(
         if (!parent) return false;
         set({ selectedNodeId: parent.id });
         return enqueue({ kind: "delete", id });
+      },
+      async cutSubtree(id, expectedSubtree) {
+        const s = get();
+        if (
+          !s.map ||
+          s.loading ||
+          s.gone ||
+          s.saving !== "idle" ||
+          s.error ||
+          s.draft ||
+          s.editingNodeId ||
+          s.selectedNodeId !== id
+        )
+          return false;
+        const operation: NodeOperation = {
+          kind: "cut",
+          id,
+          expectedSubtree: snapshotSubtree(expectedSubtree),
+        };
+        applyOperation(s.map, operation);
+        return enqueue(operation);
+      },
+      async pasteSubtree(parentId, subtree) {
+        const s = get();
+        if (
+          !s.map ||
+          s.loading ||
+          s.gone ||
+          s.saving !== "idle" ||
+          s.error ||
+          s.draft ||
+          s.editingNodeId ||
+          s.selectedNodeId !== parentId
+        )
+          return false;
+        const operation: NodeOperation = {
+          kind: "paste",
+          parentId,
+          subtree: snapshotSubtree(subtree),
+        };
+        applyOperation(s.map, operation);
+        return enqueue(operation);
       },
       async toggleCollapse(id) {
         const map = get().map,

@@ -33,6 +33,10 @@ import { ExportJsonButton } from "./ExportJsonButton";
 import { ExportPngButton } from "./ExportPngButton";
 import { MindMapEdge } from "./MindMapEdge";
 import { RecentMapsBar } from "./RecentMapsBar";
+import {
+  handleSubtreeClipboard,
+  type ClipboardFeedback,
+} from "../subtreeEvents";
 export { MindMapEdge } from "./MindMapEdge";
 
 type MindNode = Node<
@@ -186,6 +190,36 @@ export function MindMapCanvas() {
   const dragRef = useRef<BranchDrag | null>(null);
   const measurement = useRef<HTMLDivElement>(null),
     canvas = useRef<HTMLDivElement>(null);
+  const [clipboardFeedback, setClipboardFeedback] =
+    useState<ClipboardFeedback | null>(null);
+  const clipboardGeneration = useRef(0);
+  useEffect(() => {
+    setClipboardFeedback(null);
+    return () => {
+      clipboardGeneration.current++;
+    };
+  }, [s.map?.id]);
+  useEffect(() => {
+    if (!clipboardFeedback) return;
+    const timer = window.setTimeout(() => setClipboardFeedback(null), 4000);
+    return () => window.clearTimeout(timer);
+  }, [clipboardFeedback]);
+  const clipboard = (event: React.ClipboardEvent<HTMLDivElement>) => {
+    if (!canvas.current || !s.map) return;
+    const token = clipboardGeneration.current;
+    const mapId = s.map.id;
+    handleSubtreeClipboard(event, canvas.current, useEditorStore.getState, {
+      mapId,
+      dragging: !!dragRef.current,
+      feedback: (value) => {
+        if (
+          token === clipboardGeneration.current &&
+          useEditorStore.getState().map?.id === mapId
+        )
+          setClipboardFeedback(value);
+      },
+    });
+  };
   const map = useMemo(() => {
     if (!s.map) return null;
     if (!s.draft) return s.map;
@@ -533,6 +567,9 @@ export function MindMapCanvas() {
   return (
     <div
       className="canvas-shell"
+      onCopy={clipboard}
+      onCut={clipboard}
+      onPaste={clipboard}
       ref={canvas}
       tabIndex={0}
       aria-label="Mind map editor"
@@ -680,6 +717,14 @@ export function MindMapCanvas() {
         </div>
         <RecentMapsBar currentMapId={map.id} />
       </header>
+      {clipboardFeedback && (
+        <div
+          className={`clipboard-toast${clipboardFeedback.error ? " clipboard-error" : ""}`}
+          role={clipboardFeedback.error ? "alert" : "status"}
+        >
+          {clipboardFeedback.message}
+        </div>
+      )}
       {(s.error || s.notice) && (
         <div
           className={
@@ -864,6 +909,9 @@ export function MindMapCanvas() {
               ["← / →", "Parent / first child"],
               ["Home", "Re-centre root"],
               ["Ctrl / ⌘ + S", "Save map"],
+              ["Ctrl / ⌘ + C", "Copy complete branch"],
+              ["Ctrl / ⌘ + X", "Cut complete branch (except root)"],
+              ["Ctrl / ⌘ + V", "Paste branch as last child"],
               ["Ctrl / ⌘ + Z", "Undo"],
               ["Ctrl / ⌘ + Shift + Z; Ctrl + Y", "Redo"],
               ["Escape", "Cancel edit or close dialog"],
@@ -877,6 +925,13 @@ export function MindMapCanvas() {
               </div>
             ))}
           </dl>
+          <p className="subtitle">
+            Branches include collapsed descendants and stored styles, and can be
+            pasted between maps or tabs. You can copy the root, but cannot cut
+            it. Text selections and text fields keep their normal clipboard
+            shortcuts. Finish editing and wait for saving before transferring a
+            branch.
+          </p>
           <button
             className="primary"
             onClick={() => {

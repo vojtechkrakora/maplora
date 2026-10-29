@@ -593,15 +593,15 @@ Current planning status: tasks 1–31 and the previous deployment checkpoint are
     - Component: after opening map A then map B, the toolbar shows map A as a recent chip; current map B is not shown; clicking map A chip triggers navigation; bar is hidden when no recent maps exist
     - _Requirements: 29.1, 29.3, 29.4, 29.5, 29.9_
 
-- [ ] 32. Copy, cut, and paste complete subtrees within and between maps (Post-MVP)
-  - [ ]* 32.1 Define the versioned subtree clipboard payload and pure transfer helpers
+- [x] 32. Copy, cut, and paste complete subtrees within and between maps (Post-MVP)
+  - [x]* 32.1 Define the versioned subtree clipboard payload and pure transfer helpers
     - Add a client clipboard module for a `text/plain` JSON envelope `{ type: 'maplora/subtree', version: 1, root: MapNode }`, independent of Map File schema version
     - Encode an independent snapshot of the full persisted subtree, including collapsed descendants, exact labels, ordered children, collapse flags and optional stored styles; omit map metadata
     - Validate the envelope, recursive shared node schema and uniqueness of source IDs; distinguish unrelated text/Markdown/full-map JSON from invalid or unsupported Maplora subtree payloads
     - Deep-clone with a fresh UUID v4 for every pasted node, checking destination and newly allocated IDs; each paste creates a separate tree with no shared references
     - _Requirements: 30.3, 30.4, 30.9, 30.10, 30.12, 30.13_
 
-  - [ ]* 32.2 Implement cut and paste as complete-subtree editor operations
+  - [x]* 32.2 Implement cut and paste as complete-subtree editor operations
     - Extend `NodeOperation` and store actions with `cut` (source ID plus expected subtree snapshot) and `paste` (parent ID plus materialized subtree with fresh IDs)
     - Cut only after successful clipboard capture; reject root cut, remove without the delete confirmation, select the source parent and autosave one operation
     - Paste as the selected node's last child, expand the destination parent and select the inserted subtree root; preserve descendant collapse/style data and existing child order
@@ -611,7 +611,7 @@ Current planning status: tasks 1–31 and the previous deployment checkpoint are
     - On cut save failure, retain the clipboard as a copy and explain that removal failed; on paste failure, retain the clipboard and prevent duplicate insertion during retry
     - _Requirements: 30.5–30.11, 30.14, 30.16–30.18, 25.1–25.6, 22.1–22.8_
 
-  - [ ]* 32.3 Connect native clipboard events and editor feedback
+  - [x]* 32.3 Connect native clipboard events and editor feedback
     - Handle user-initiated `copy`/`cut`/`paste` events on the focused canvas with synchronous event clipboard data; support Ctrl shortcuts and macOS Cmd equivalents without suppressing their clipboard events in keydown
     - Use the system clipboard across route navigation, tabs and reloads; paste actual clipboard data without a module-memory fallback or asynchronous clipboard-read permission dependency
     - Guard text selections, editable controls and inherited contenteditable descendants, dialogs, toolbar/options/help controls, inline edits, drafts, dragging, loading, in-flight saves and pending save errors
@@ -620,26 +620,26 @@ Current planning status: tasks 1–31 and the previous deployment checkpoint are
     - Extend shortcut help with paste-as-child placement, full-subtree inclusion, root-cut protection and native text behaviour; preserve the existing Copy as Markdown command
     - _Requirements: 30.1–30.8, 30.12–30.15, 30.18, 30.19, 16.1, 16.5, 27.1–27.8_
 
-  - [ ]* 32.4 Verify payload and store invariants with unit/property/integration tests
+  - [x]* 32.4 Verify payload and store invariants with unit/property/integration tests
     - Implement planned design Properties 22–25 with at least 100 generated cases per property
     - Test full multi-level/collapsed/styled subtree round trips, Unicode and whitespace preservation, invalid envelopes/versions/nodes/duplicate IDs, fresh IDs, repeated paste, source/destination independence and absence of cycles
     - Test persisted cut/paste as one mutation, last-child placement, destination-parent expansion, unchanged unrelated metadata and source data, original order/collapse restoration on undo, redo ID stability and unchanged clipboard/history on copy
     - Exercise clipboard-write failure before removal, source/destination save failures, rollback/history reconciliation, retry without duplicates, missing targets, cut-source remote edits/deletion, paste ID collisions, 409 rebasing and late responses after navigation
     - _Requirements: 30.3–30.18, 25.1–25.8, 22.3, 22.8_
 
-  - [ ]* 32.5 Verify keyboard/event routing and real system clipboard transfers
+  - [x]* 32.5 Verify keyboard/event routing and real system clipboard transfers
     - Component tests: eligible canvas selection, native text selections/inputs/contenteditable descendants, modal/toolbar/options/help guards, edits/drafts/dragging, busy/error states, root handling, malformed/unrelated clipboard data, feedback and listener cleanup
     - Real browser: use Ctrl/Cmd+C/X/V to transfer complete styled/collapsed branches within a map and between maps, across tabs and page reloads, using the system clipboard on localhost and plain HTTP LAN
     - Verify copy-root/paste-as-child, repeated paste with distinct IDs, selection/layout/theme defaults, independent per-map undo semantics, native text shortcuts, Copy as Markdown replacing clipboard content, clipboard/save failure recovery and persisted JSON after reload
     - _Requirements: 30.1–30.19, 16.1, 16.5, 27.1–27.8_
 
-  - [ ]* 32.6 Complete the subtree clipboard implementation checkpoint
+  - [x]* 32.6 Complete the subtree clipboard implementation checkpoint
     - Update README editing guidance and shortcut table, plus relevant product/structure steering, with the implemented clipboard format/behaviour and independent per-map history semantics
     - Run `npm test`, `npm run build`, real-browser verification from 32.5 and `npm run verify:compose`; record actual results and any limitations in implementation notes
     - Mark task 32 complete only after its requirements and verification pass
     - _Requirements: 30.1–30.19, 23.1, 23.7, 24.2, 24.3_
 
-- [x] 23. Final checkpoint — all tests pass, Docker build verified (tasks 1–31)
+- [x] 23. Final checkpoint — all tests pass, Docker build verified (tasks 1–32)
   - Ensure all tests pass, ask the user if questions arise.
 
 ---
@@ -786,6 +786,18 @@ Task 31 implemented on 2026-10-29: `recentMapsStore.ts` keeps at most five map s
 Successful library refreshes reconcile recent summaries, update titles and remove unavailable entries without changing opening order. Successful renames update titles, successful trash operations remove entries immediately, and failed requests retain history. The original task 31.2 note about retaining stale entries and displaying an error conflicted with Requirement 29.7; it has been corrected to follow the requirement. A recent target returning 404/410 is removed and returns quietly to the library. Other read errors and errors when an already loaded map is deleted during saving retain their normal feedback. External deletions are discovered on the next existing library refresh or attempted open, with no polling or extra requests.
 
 All 372 automated tests passed across 32 files, including 17 new unit/component cases for bounded ordering, duplicates and metadata refresh, filtering without mutation, fresh-module/session reset without storage, successful opens and chip navigation, long titles, StrictMode, abandoned loads, successful/failed delete and refresh, rename updates, quiet 404/410 targets, normal load/save error feedback, saving guards and native keyboard routing. Production build and formatting checks passed. Real Chrome verified ordered chip navigation and keyboard activation without node mutations; full title/ellipsis behavior and both themes at 320–1440px; horizontal scrolling; blur-save navigation protection and persisted text; rename/trash updates; silent externally deleted targets; reload and new-tab reset without storage; unchanged unrelated map files; and no browser errors. Browser checks used isolated temporary map data. Isolated Docker Compose verification passed the image build, static assets/API, bind-mounted JSON, duplication/import, restart/recreation and trash/restoration. All tasks in the current plan are complete.
+
+**Task 32 Implementation Notes**
+
+Task 32 implemented on 2026-10-29: the focused canvas handles native copy, cut and paste events through synchronous `text/plain` clipboard data, without asynchronous read permissions or a cached fallback. The independent version-1 `maplora/subtree` envelope includes the complete persisted branch, including hidden descendants, exact Unicode/whitespace labels, ordered children, collapse flags and optional stored styles, with no map metadata. Shared recursive validation and whole-subtree ID uniqueness reject invalid or unsupported recognized payloads; ordinary text, Markdown and full-map JSON retain native handling. Each paste materializes independent UUID v4 IDs disjoint from source, destination and earlier allocations, with bounded collision recovery.
+
+Complete cuts and pastes each use one queued operation, one save and one history entry. Capture succeeds before cut removal; root cut is rejected without clipboard access. Cut selects the source parent. Paste appends after existing children, expands only its destination parent and selects the inserted root. Stored style overrides remain exact; defaults follow the destination depth/theme, including roots pasted as ordinary children. Clipboard and tree references remain independent. Retry/redo retain pasted IDs and undo restores exact order/collapse without reading or writing the clipboard. Cross-map transfers have independent saves and session-scoped histories, and undoing a destination paste never restores its source.
+
+On 409, the queue reapplies once against the latest map while preserving unrelated remote changes. Missing destinations, any inserted-ID collision, and missing or changed captured cut branches fail without partial insertion or uncopied deletion. Save failures roll back map/history and use the existing retry controls; failed cut feedback explains that the clipboard remains usable as a copy. Clipboard access failures never enqueue mutations. Current state/route and focus guards preserve text selections, inputs, inherited editable descendants, dialogs, toolbar/options/help controls, edits, drafts and drags, and block loading/saving/failed-save states. React owns handler cleanup under StrictMode; generation checks suppress stale route feedback. Help, README and steering document these behaviors; Copy as Markdown remains unchanged and replaces clipboard content normally. No schema, API or dependency changed.
+
+All 445 automated tests passed across 34 files, including 73 new unit/property/component/integration cases. Properties 22–25 each ran 100 generated cases. Tests cover full styled snapshots, exact labels, invalid envelopes/versions/nodes/duplicate IDs, collision recovery, repeated paste, metadata/source isolation, one-operation history, rollback/retry, redo stability, unchanged redo on rejected actions, source/destination conflicts and missing targets, second-409 limits, late responses after navigation, native Ctrl/Cmd event routing, focus/state guards, root protection, clipboard failures and StrictMode cleanup. Production build, formatting and diff checks passed.
+
+Real Chrome on macOS passed actual Cmd+C/X/V transfers through the system clipboard on localhost and an insecure HTTP LAN origin with no asynchronous Clipboard API. Verification used isolated temporary data and covered complete multi-level collapsed/styled Unicode branches; root copy/cut protection; destination expansion and selection; fresh repeated/self/descendant paste; source and metadata isolation; route/tab/reload transfers; native inputs, editable descendants and DOM text selections; depth/theme defaults; Markdown replacement; independent per-map undo/redo; clipboard-write failure before removal; cut/paste save rollback, busy guards and retry without duplicates; persisted JSON after reload; and no browser exceptions. Other browsers/platform clipboard policies remain unverified. Isolated Docker Compose verification passed the image build, static assets/API, bind-mounted JSON, duplication/import, restart/recreation and trash/restoration. All tasks in the current plan are complete.
 
 ## Task Dependency Graph
 
