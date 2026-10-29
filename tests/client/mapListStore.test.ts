@@ -6,16 +6,17 @@ import {
 import type { MapSummary } from "../../src/shared/schema.js";
 
 const maps: MapSummary[] = [
-  { id: "c", title: "zebra plan", updatedAt: "2026-01-02T00:00:00Z" },
-  { id: "b", title: "Beta", updatedAt: "2026-01-03T00:00:00Z" },
-  { id: "a", title: "Alpha plan", updatedAt: "2026-01-01T00:00:00Z" },
-  { id: "bad", title: "broken.json", error: true },
+  { id: "c", title: "zebra plan", updatedAt: "2026-01-02T00:00:00Z", tags: [] },
+  { id: "b", title: "Beta", updatedAt: "2026-01-03T00:00:00Z", tags: [] },
+  { id: "a", title: "Alpha plan", updatedAt: "2026-01-01T00:00:00Z", tags: [] },
+  { id: "bad", title: "broken.json", error: true, tags: [] },
 ];
 beforeEach(() => {
   localStorage.clear();
   useMapListStore.setState({
     maps: structuredClone(maps),
     searchQuery: "",
+    activeTags: [],
     sortOrder: "updatedAt_desc",
   });
 });
@@ -54,16 +55,26 @@ it("filters before sorting and responds to in-memory list changes", () => {
   setSortOrder("title_asc");
   expect(results().map((m) => m.id)).toEqual(["a", "c"]);
   useMapListStore.setState({
-    maps: [...maps, { id: "new", title: "Middle PLAN" }],
+    maps: [...maps, { id: "new", title: "Middle PLAN", tags: [] }],
   });
   expect(results().map((m) => m.id)).toEqual(["a", "new", "c"]);
 });
 it("orders equivalent timestamp instants together, leaves missing dates last and keeps ties stable", () => {
   useMapListStore.setState({
     maps: [
-      { id: "invalid", title: "Invalid", updatedAt: "invalid" },
-      { id: "first", title: "Same", updatedAt: "2026-01-01T01:00:00+01:00" },
-      { id: "second", title: "same", updatedAt: "2026-01-01T00:00:00Z" },
+      { id: "invalid", title: "Invalid", updatedAt: "invalid", tags: [] },
+      {
+        id: "first",
+        title: "Same",
+        updatedAt: "2026-01-01T01:00:00+01:00",
+        tags: [],
+      },
+      {
+        id: "second",
+        title: "same",
+        updatedAt: "2026-01-01T00:00:00Z",
+        tags: [],
+      },
       maps[3],
     ],
   });

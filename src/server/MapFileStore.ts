@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import {
   MapFileSchema,
   TitleSchema,
+  TagsSchema,
   UUIDSchema,
   summarize,
   type MapFile,
@@ -119,7 +120,7 @@ export class MapFileStore {
         try {
           return summarize(await this.read(id, trash));
         } catch {
-          return { id, title: name, error: true } as MapSummary;
+          return { id, title: name, tags: [], error: true } as MapSummary;
         }
       }),
     );
@@ -141,6 +142,7 @@ export class MapFileStore {
       revision: 1,
       id: randomUUID(),
       title,
+      tags: [],
       createdAt: now,
       updatedAt: now,
       root: { id: randomUUID(), text: title, collapsed: false, children: [] },
@@ -265,6 +267,20 @@ export class MapFileStore {
       const saved = {
         ...map,
         title,
+        revision: map.revision + 1,
+        updatedAt: new Date().toISOString(),
+      };
+      await this.atomicWrite(saved);
+      return saved;
+    });
+  }
+  async updateTags(id: string, input: string[]) {
+    const tags = TagsSchema.parse(input);
+    return this.locked(id, async () => {
+      const map = await this.read(id);
+      const saved = {
+        ...map,
+        tags,
         revision: map.revision + 1,
         updatedAt: new Date().toISOString(),
       };

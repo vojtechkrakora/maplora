@@ -467,8 +467,8 @@ MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Po
     - Test that a node with `style.backgroundColor` set to any value uses that value and ignores depth-based default
     - _Requirements: 15.6, 17.8_
 
-- [ ] 27. Map Tags (Post-MVP)
-  - [ ]* 27.1 Extend `MapFile` schema and `MapSummary` to include `tags`
+- [x] 27. Map Tags (Post-MVP)
+  - [x]* 27.1 Extend `MapFile` schema and `MapSummary` to include `tags`
     - Add `tags: z.array(z.string()).default([])` to `MapFileSchema` in `src/shared/schema.ts`
     - Add `tags: string[]` to `MapSummary` type
     - Tag validation rules (enforce in schema and API): 1–32 characters, not all-whitespace, no commas, max 20 tags per map
@@ -476,19 +476,19 @@ MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Po
     - Update `listMaps()` in `MapFileStore` to include `tags` in the returned `MapSummary` objects
     - _Requirements: 28.1, 28.2, 28.3, 28.4, 28.14, 28.15_
 
-  - [ ]* 27.2 Implement tag save API endpoint
+  - [x]* 27.2 Implement tag save API endpoint
     - Add `PATCH /api/maps/:mapId/tags` endpoint: accepts `{ tags: string[] }`, validates per tag rules (1–32 chars, no commas, no all-whitespace, max 20), updates `tags` field in Map File via `MapFileStore.renameMap`-style atomic write, returns updated `MapSummary`
     - Add `updateTags(mapId, tags)` function to `src/client/api.ts`
     - _Requirements: 28.3, 28.4, 28.6, 28.7_
 
-  - [ ]* 27.3 Extend `mapListStore` with tag state and filtering
+  - [x]* 27.3 Extend `mapListStore` with tag state and filtering
     - Add `activeTags: string[]` to `mapListStore` state
     - Add action `setActiveTags(tags: string[])`: replaces the active tag filter
     - Extend `filteredAndSortedMaps()` selector: after text-search filtering, additionally filter to maps that contain ALL tags in `activeTags` (AND logic); empty `activeTags` disables tag filtering
     - Add derived selector `allTags(): string[]`: returns all unique tags across all loaded `MapSummary` objects, sorted alphabetically
     - _Requirements: 28.10, 28.11, 28.12, 28.13_
 
-  - [ ]* 27.4 Implement tag management UI on `MapCard`
+  - [x]* 27.4 Implement tag management UI on `MapCard`
     - Add a tag management control to `MapCard` that allows adding and removing tags
     - Tag input with autocomplete: suggest tags from `mapListStore.allTags()` filtered by current input; show alphabetically sorted suggestions; allow free-text entry for new tags
     - Display up to 5 tags directly on the card as chips/badges; show "+N" count badge when more than 5 tags are assigned
@@ -496,14 +496,14 @@ MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Po
     - Enforce validation constraints (1–32 chars, no commas, no all-whitespace, max 20 tags) inline in the input with error messages
     - _Requirements: 28.2, 28.3, 28.4, 28.5, 28.6, 28.7, 28.8, 28.9_
 
-  - [ ]* 27.5 Implement tag filter control in `MapListPage`
+  - [x]* 27.5 Implement tag filter control in `MapListPage`
     - Add a tag filter panel/dropdown to `MapListHeader` showing all unique tags from `mapListStore.allTags()`
     - Selecting a tag adds it to `activeTags`; deselecting removes it; selected tags are visually distinguished
     - Active tag filter combines with the existing text search and sort order (search first, then tag filter, then sort)
     - Tag filter panel shows a "Clear all" control that resets `activeTags` to `[]`
     - _Requirements: 28.10, 28.11, 28.12_
 
-  - [ ]* 27.6 Write unit and component tests for tag feature
+  - [x]* 27.6 Write unit and component tests for tag feature
     - Unit: tag schema validation accepts valid tags; rejects all-whitespace, commas, >32 chars, and >20 tags; missing `tags` field in legacy file parsed as empty array
     - Unit: `filteredAndSortedMaps()` with active tags applies AND logic; empty `activeTags` returns all; combined text + tag filter works correctly
     - Unit: `allTags()` returns sorted unique tags across all summaries
@@ -637,6 +637,14 @@ Task 22 implemented on 2026-10-27: the editor offers Undo and Redo toolbar butto
 The save queue now projects history alongside pending operations from the last committed state. This keeps rapid edit/undo/redo sequences ordered and removes failed changes from history while preserving later valid operations. Failed undo/redo restores the canvas and both stacks and offers Retry change. A stale-revision retry uses current revision/metadata and records the actual pre-save tree for the opposite action. Because history uses complete snapshots, undo/redo can replace tree edits from another tab; one editor tab per map is recommended. Invalid selections fall back to the root when history removes their node, and late saves cannot modify another map session. No dependency, schema or endpoint changed.
 
 All 280 automated tests passed across 26 files, including 22 new cases for history, keyboard/toolbar controls and a live HTTP/filesystem round trip. Properties 20 and 21 each ran 100 generated sequences of node operations. Tests cover the 50-operation cap, full redo, empty stacks, invalid/no-op edits, redo clearing, save failure/retry, queued actions and rollback, conflict recovery, deleted maps, selection and session isolation. Real Chrome passed toolbar and Ctrl/Cmd shortcuts, exact subtree/style/ID restoration, text and draft guards, persistence with increasing revisions, failure/retry, queued edit/undo/redo, 409 metadata preservation, reload reset and 320–1440px layouts without page errors. On a 500-node canvas, persisted undo completed in 271ms and redo in 301ms with all nodes retained. The production build and isolated Docker Compose verification passed, including static assets, API, bind-mounted JSON, restart and recreation, trash and restoration. Map tags (task 27) and root prominence/re-centering (task 28) remain deferred.
+
+**Task 27 Implementation Notes**
+
+Task 27 implemented on 2026-10-29: maps and library summaries include ordered tags, defaulting to an empty array. Shared validation and the tag API enforce 1–32 characters, no all-whitespace values or commas, and at most 20 tags. Schema v1 files missing tags load as empty without migration or read-time writes. Newly created files store `tags: []`; corrupt-file summaries expose empty tags. Tags retain exact case, spelling, whitespace and order. The UI prevents duplicate additions.
+
+`PATCH /api/maps/:mapId/tags` validates the complete tag array, acquires the existing map lock, reads the latest map, increments revision/update time and saves through the existing atomic write path. It returns the updated summary. Library cards offer a Tags dialog with native datalist autocomplete from alphabetically sorted unique tags across the full loaded library, immediate add/remove saves, inline validation, busy guards and retryable failures without losing input or saved tags. Cards show the first five chips followed by a +N badge. The library tag dropdown matches all selected tags and combines with title search and sorting without further requests. A selected tag remains removable if its last matching map disappears. Import clears search/tag filters to keep the imported card visible. Duplication, JSON transfer, trash/restoration and editor revision-conflict recovery preserve tags. No new dependencies were added. Root prominence and re-centering (task 28) remain deferred.
+
+All 315 automated tests passed across 28 files, including 35 new cases for schema limits, legacy files remaining byte/mtime identical, live HTTP persistence, invalid routes/payloads, concurrent metadata changes, stale revisions, write failure/retry and temporary-file cleanup, duplication/import/trash, editor saves/undo/redo retaining tags, local AND/search/sort filtering, sorted unique suggestions, first-five/+N chips, inline validation, repeated-click guards, failure recovery, focus, empty filters and removing a filtered card. The existing generated map round-trip property now includes tags. Real Chrome passed add/remove, autocomplete, exact limits, duplicate prevention, failed-save retry, focus restoration, local filtering, disappearing cards, unchanged legacy files, reload/duplication persistence and 320–1440px light/dark layouts without page errors. Filtering a 500-map library rendered in 16ms. Production build, formatting and isolated Docker Compose verification passed, including tags in original/duplicate/imported JSON after restart and container recreation, plus trash/restoration.
 
 ## Task Dependency Graph
 

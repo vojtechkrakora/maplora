@@ -4,6 +4,7 @@ import { ZodError, z } from "zod";
 import {
   MapFileSchema,
   TitleSchema,
+  TagsSchema,
   UUIDSchema,
   summarize,
 } from "../shared/schema.js";
@@ -75,6 +76,14 @@ export function createApp(store: MapFileStore, publicDir = "./dist/public") {
     const id = UUIDSchema.parse(c.req.param("mapId")),
       { title } = z.object({ title: TitleSchema }).parse(await c.req.json());
     return c.json(summarize(await c.get("store").renameMap(id, title)));
+  });
+  app.patch("/api/maps/:mapId/tags", async (c) => {
+    const id = UUIDSchema.parse(c.req.param("mapId")),
+      { tags } = z
+        .object({ tags: TagsSchema })
+        .strict()
+        .parse(await c.req.json());
+    return c.json(summarize(await c.get("store").updateTags(id, tags)));
   });
   app.delete("/api/maps/:mapId", async (c) => {
     await c.get("store").trashMap(UUIDSchema.parse(c.req.param("mapId")));

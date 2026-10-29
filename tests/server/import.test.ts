@@ -69,6 +69,7 @@ it("imports valid v1 JSON with a new map ID, preserving every node and portable 
   expect(summary).toEqual({
     id: expect.any(String),
     title: input.title,
+    tags: input.tags,
     updatedAt: input.updatedAt,
   });
   expect(summary.id).not.toBe(input.id);

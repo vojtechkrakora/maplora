@@ -62,6 +62,7 @@ it("lists zero, one and multiple maps, sorts timestamps, and retains corrupt ent
   expect(result[2]).toEqual({
     id: "broken",
     title: "broken.json",
+    tags: [],
     error: true,
   });
 });

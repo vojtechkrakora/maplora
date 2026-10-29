@@ -1,6 +1,10 @@
 import { create } from "zustand";
 import * as api from "../api";
-import type { MapFile, MapSummary } from "../../shared/schema.js";
+import {
+  TagsSchema,
+  type MapFile,
+  type MapSummary,
+} from "../../shared/schema.js";
 
 export type SortOrder =
   "updatedAt_desc" | "updatedAt_asc" | "title_asc" | "title_desc";
@@ -27,6 +31,10 @@ interface MapListState {
   error: string | null;
   searchQuery: string;
   sortOrder: SortOrder;
+  activeTags: string[];
+  setActiveTags(tags: string[]): void;
+  allTags(): string[];
+  updateTags(id: string, tags: string[]): Promise<void>;
   setSearchQuery(query: string): void;
   setSortOrder(order: SortOrder): void;
   filteredAndSortedMaps(): MapSummary[];
@@ -43,6 +51,19 @@ export const useMapListStore = create<MapListState>((set, get) => ({
   error: null,
   searchQuery: "",
   sortOrder: readSortOrder(),
+  activeTags: [],
+  setActiveTags(activeTags) {
+    set({ activeTags: [...new Set(activeTags)] });
+  },
+  allTags() {
+    return [...new Set(get().maps.flatMap((map) => map.tags ?? []))].sort(
+      (a, b) => titleCollator.compare(a, b) || a.localeCompare(b),
+    );
+  },
+  async updateTags(id, tags) {
+    const map = await api.updateTags(id, TagsSchema.parse(tags));
+    set((s) => ({ maps: s.maps.map((item) => (item.id === id ? map : item)) }));
+  },
   setSearchQuery(searchQuery) {
     set({ searchQuery });
   },
@@ -55,11 +76,14 @@ export const useMapListStore = create<MapListState>((set, get) => ({
     }
   },
   filteredAndSortedMaps() {
-    const { maps, searchQuery, sortOrder } = get();
+    const { maps, searchQuery, sortOrder, activeTags } = get();
     const query = searchQuery.toLowerCase();
     // filter creates a new array, so sorting never mutates the loaded maps.
     return maps
       .filter((map) => map.title.toLowerCase().includes(query))
+      .filter((map) =>
+        activeTags.every((tag) => (map.tags ?? []).includes(tag)),
+      )
       .sort((a, b) => {
         if (sortOrder === "title_asc" || sortOrder === "title_desc") {
           return (
@@ -104,7 +128,11 @@ export const useMapListStore = create<MapListState>((set, get) => ({
   },
   async importMap(map) {
     const summary = await api.importMap(map);
-    set((s) => ({ maps: [summary, ...s.maps], searchQuery: "" }));
+    set((s) => ({
+      maps: [summary, ...s.maps],
+      searchQuery: "",
+      activeTags: [],
+    }));
     return summary;
   },
 }));

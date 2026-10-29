@@ -21,6 +21,10 @@ export const mapArb: fc.Arbitrary<MapFile> = fc.record({
   revision: fc.integer({ min: 1, max: 100 }),
   id: uuid(),
   title: textArb,
+  tags: fc.array(
+    textArb.filter((text) => text.length <= 32 && !text.includes(",")),
+    { maxLength: 5 },
+  ),
   createdAt: fc.constant("2026-01-01T00:00:00.000Z"),
   updatedAt: fc.constant("2026-01-02T00:00:00.000Z"),
   root: nodeArb,
@@ -31,6 +35,7 @@ export function fixture(): MapFile {
     revision: 1,
     id: "12345678-1234-4234-8234-123456789012",
     title: "Garden of ideas",
+    tags: [],
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-02T00:00:00.000Z",
     root: {

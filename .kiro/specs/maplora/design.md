@@ -103,8 +103,8 @@ Host machine
 ```
 App
 ├── MapListPage
-│   ├── MapListHeader (new map button, search, trash link)
-│   ├── MapCard[]    (title, timestamp, rename / delete actions)
+│   ├── MapListHeader (new map button, search, sort, tag filter, trash link)
+│   ├── MapCard[]    (title, timestamp, tag chips / management, rename / delete actions)
 │   └── EmptyState
 ├── EditorPage
 │   ├── EditorToolbar (title, zoom controls, export, undo/redo)
@@ -129,12 +129,21 @@ interface MapListState {
   maps: MapSummary[];
   loading: boolean;
   error: string | null;
+  searchQuery: string;
+  sortOrder: 'updatedAt_desc' | 'updatedAt_asc' | 'title_asc' | 'title_desc';
+  activeTags: string[];
+  setActiveTags: (tags: string[]) => void;
+  allTags: () => string[]; // sorted unique tags from all loaded summaries
+  updateTags: (mapId: string, tags: string[]) => Promise<void>;
+  filteredAndSortedMaps: () => MapSummary[]; // title search, all selected tags, sort
   fetchMaps: () => Promise<void>;
   createMap: (title: string) => Promise<string>; // returns new mapId
   deleteMap: (mapId: string) => Promise<void>;
   renameMap: (mapId: string, title: string) => Promise<void>;
 }
 ```
+
+The tag management dialog on each card uses a native datalist for alphabetically sorted suggestions from the complete loaded library, filtered by input. Successful saves replace only the returned summary in memory; failed saves retain the existing tags and entered text for retry. Cards display the first five tags plus a count of the remainder. The tag filter uses checkbox selections with AND semantics and a clear-all action. Search, tag selection and sort never refetch the list. Import clears search and tag filters so the imported card stays visible.
 
 **`editorStore`** — editor state (loaded when EditorPage mounts)
 ```typescript
@@ -173,6 +182,7 @@ All endpoints are under `/api`. The server is stateless per-request; all state l
 | `GET` | `/api/maps/:mapId` | Load a single map |
 | `PUT` | `/api/maps/:mapId` | Save (full-map write with revision check) |
 | `PATCH` | `/api/maps/:mapId/title` | Rename (title only) |
+| `PATCH` | `/api/maps/:mapId/tags` | Validate `{ tags: string[] }`, atomically update tags and return updated `MapSummary` |
 | `DELETE` | `/api/maps/:mapId` | Move to trash |
 | `GET` | `/api/trash` | List maps in `_trash` |
 | `POST` | `/api/trash/:mapId/restore` | Restore from trash to data dir |
@@ -191,6 +201,7 @@ class MapFileStore {
   async readMap(mapId: string): Promise<MapFile>
   async writeMap(map: MapFile): Promise<void>     // atomic write
   async renameMap(mapId: string, title: string): Promise<MapFile>
+  async updateTags(mapId: string, tags: string[]): Promise<MapFile>
   async trashMap(mapId: string): Promise<void>
   async listTrash(): Promise<MapSummary[]>
   async restoreMap(mapId: string): Promise<void>
@@ -227,9 +238,18 @@ interface MapFile {
   revision: number;        // ≥ 1, incremented on every successful write
   id: string;              // UUID v4
   title: string;           // 1–100 characters
+  tags: string[];          // ordered, default []; at most 20 tags
   createdAt: string;       // ISO 8601
   updatedAt: string;       // ISO 8601
   root: MapNode;
+}
+
+interface MapSummary {
+  id: string;
+  title: string;
+  tags: string[];
+  updatedAt?: string;
+  error?: boolean;
 }
 
 interface MapNode {
@@ -249,6 +269,8 @@ interface NodeStyle {
   connectorWidth?: number;     // 1–8
 }
 ```
+
+**Tags**: Shared Zod schemas validate each exact string as 1–32 characters, not all whitespace and without commas; a map accepts at most 20. Tags are case sensitive and retain their order and whitespace. The library prevents duplicate additions. A missing `tags` field in schema v1 parses as `[]` without a version bump, migration or read-time rewrite; new maps persist `tags: []`. Corrupt-file summaries contain empty tags. Tag updates acquire the existing per-map lock, read the latest file, replace only tags, increment revision/update timestamp, and use the same atomic write path as renaming. Duplication, import/export, trash/restoration and editor conflict retries preserve tags.
 
 **Filename**: `{mapId}.json` (UUID v4 slug, no title in filename — Requirement 21.3).
 

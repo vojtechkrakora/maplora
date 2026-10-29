@@ -34,6 +34,8 @@ export const saveMap = (map: MapFile) =>
   request<MapFile>(`/maps/${map.id}`, "PUT", map);
 export const renameMap = (id: string, title: string) =>
   request<MapSummary>(`/maps/${id}/title`, "PATCH", { title });
+export const updateTags = (id: string, tags: string[]) =>
+  request<MapSummary>(`/maps/${id}/tags`, "PATCH", { tags });
 export const deleteMap = (id: string) => request<void>(`/maps/${id}`, "DELETE");
 export const duplicateMap = (id: string) =>
   request<MapSummary>(`/maps/${id}/duplicate`, "POST");

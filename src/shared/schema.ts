@@ -17,6 +17,20 @@ export const NodeTextSchema = z
   .min(1)
   .max(200)
   .refine((v) => v.trim().length > 0, "Enter node text");
+export const MAX_TAGS = 20;
+export const MAX_TAG_LENGTH = 32;
+export const TagSchema = z
+  .string()
+  .min(1, "Enter a tag.")
+  .max(MAX_TAG_LENGTH, "Tags must be 1–32 characters.")
+  .refine(
+    (tag) => tag.trim().length > 0,
+    "Tags cannot contain only whitespace.",
+  )
+  .refine((tag) => !tag.includes(","), "Tags cannot contain commas.");
+export const TagsSchema = z
+  .array(TagSchema)
+  .max(MAX_TAGS, "A map can have at most 20 tags.");
 export const NodeStyleSchema = z
   .object({
     backgroundColor: z.string().optional(),
@@ -52,6 +66,7 @@ export const MapFileSchema = z
     revision: z.number().int().min(1),
     id: UUIDSchema,
     title: TitleSchema,
+    tags: TagsSchema.default([]),
     createdAt: z.string().datetime({ offset: true }),
     updatedAt: z.string().datetime({ offset: true }),
     root: MapNodeSchema,
@@ -76,9 +91,15 @@ export type MapFile = z.infer<typeof MapFileSchema>;
 export interface MapSummary {
   id: string;
   title: string;
+  tags: string[];
   updatedAt?: string;
   error?: boolean;
 }
 export function summarize(map: MapFile): MapSummary {
-  return { id: map.id, title: map.title, updatedAt: map.updatedAt };
+  return {
+    id: map.id,
+    title: map.title,
+    tags: map.tags,
+    updatedAt: map.updatedAt,
+  };
 }

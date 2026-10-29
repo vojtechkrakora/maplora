@@ -5,6 +5,7 @@ import { Brand, MapGlyph } from "../components/Brand";
 import { TitleDialog } from "../components/Dialog";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { ImportJsonButton } from "../components/ImportJsonButton";
+import { MapTags, TagFilter } from "../components/MapTags";
 import type { MapSummary } from "../../shared/schema.js";
 
 function MapListControls() {
@@ -29,6 +30,7 @@ function MapListControls() {
           onChange={(event) => setInput(event.target.value)}
         />
       </label>
+      <TagFilter />
       <label>
         Sort maps
         <select
@@ -54,7 +56,7 @@ export function MapListPage() {
     [importedId, setImportedId] = useState("");
   const maps = useMemo(
     () => s.filteredAndSortedMaps(),
-    [s.maps, s.searchQuery, s.sortOrder, s.filteredAndSortedMaps],
+    [s.maps, s.searchQuery, s.sortOrder, s.activeTags, s.filteredAndSortedMaps],
   );
   useEffect(() => {
     void s.fetchMaps();
@@ -109,18 +111,31 @@ export function MapListPage() {
             YOUR MAPS <span className="count">{s.maps.length}</span>
           </span>
           <span role="status">
-            {s.searchQuery ? `${maps.length} matching maps` : ""}
+            {s.searchQuery || s.activeTags.length
+              ? `${maps.length} matching maps`
+              : ""}
           </span>
         </div>
         {s.loading ? (
           <div className="empty-state" role="status">
             Gathering your ideas…
           </div>
-        ) : s.searchQuery && !maps.length ? (
+        ) : (s.searchQuery || s.activeTags.length > 0) && !maps.length ? (
           <div className="empty-state">
-            <h2>No results for “{s.searchQuery}”</h2>
-            <p>Try another title or clear your search to see all maps.</p>
-            <button onClick={() => s.setSearchQuery("")}>Clear search</button>
+            <h2>
+              {s.searchQuery
+                ? `No results for “${s.searchQuery}”`
+                : "No maps match these tags"}
+            </h2>
+            <p>Try another title or tag selection, or clear your filters.</p>
+            {s.searchQuery && (
+              <button onClick={() => s.setSearchQuery("")}>Clear search</button>
+            )}
+            {s.activeTags.length > 0 && (
+              <button onClick={() => s.setActiveTags([])}>
+                Clear tag filter
+              </button>
+            )}
           </div>
         ) : !s.maps.length ? (
           <div className="empty-state">
@@ -158,6 +173,7 @@ export function MapListPage() {
                     )}
                   </div>
                 </Link>
+                <MapTags map={map} />
                 <div className="card-actions">
                   <button
                     disabled={map.error}

@@ -126,6 +126,13 @@ try {
     map.root.children[0].children[0].children[0].text,
     "Moves with its parent",
   );
+  const tags = ["work", "two words", "Žluťoučký"];
+  const tagged = await request(`/api/maps/${map.id}/tags`, "PATCH", { tags });
+  assert.deepEqual(tagged.tags, tags);
+  map = await request(`/api/maps/${map.id}`);
+  assert.equal(map.revision, 5);
+  assert.deepEqual(map.tags, tags);
+  assert.deepEqual((await request("/api/maps"))[0].tags, tags);
   assert.deepEqual(
     JSON.parse(await readFile(path.join(directory, `${map.id}.json`), "utf8")),
     map,
@@ -135,6 +142,8 @@ try {
   assert.notEqual(copy.id, map.id);
   assert.equal(copy.title, `${map.title} (Copy)`);
   assert.equal(copy.revision, 1);
+  assert.deepEqual(copy.tags, map.tags);
+  assert.deepEqual(duplicate.tags, map.tags);
   assert.notEqual(copy.root.id, map.root.id);
   assert.notEqual(copy.root.children[0].id, map.root.children[0].id);
   assert.equal(copy.root.children[0].text, map.root.children[0].text);
@@ -146,6 +155,8 @@ try {
   const imported = await request(`/api/maps/${importedSummary.id}`);
   assert.notEqual(imported.id, map.id);
   assert.equal(imported.revision, 1);
+  assert.deepEqual(imported.tags, map.tags);
+  assert.deepEqual(importedSummary.tags, map.tags);
   assert.equal(imported.createdAt, map.createdAt);
   assert.equal(imported.updatedAt, map.updatedAt);
   function compareImport(source, result) {
@@ -180,7 +191,7 @@ try {
   await request(`/api/trash/${map.id}/restore`, "POST");
   assert.deepEqual(await request(`/api/maps/${map.id}`), map);
   console.log(
-    "PASS: Compose build, static assets including the PNG export module, theme bootstrap, SPA fallback, API, duplication, JSON import with conflict replacement, sibling order, branch moves, custom styles, bind-mounted JSON, restart, recreation, trash and restoration.",
+    "PASS: Compose build, static assets including the PNG export module, theme bootstrap, SPA fallback, API, duplication, JSON import with conflict replacement, sibling order, branch moves, custom styles, map tags, bind-mounted JSON, restart, recreation, trash and restoration.",
   );
 } finally {
   await compose("down", "--remove-orphans");

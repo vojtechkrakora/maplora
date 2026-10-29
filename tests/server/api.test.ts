@@ -161,7 +161,7 @@ it("duplicates a complete tree with fresh IDs and metadata without changing the 
   expect(MapFileSchema.parse(copy)).toEqual(copy);
   expect(copy).toMatchObject({ title: "Original (Copy)", revision: 1, schemaVersion: 1 });
   expect(copy.id).not.toBe(id);
-  expect(summary).toEqual({ id: copy.id, title: copy.title, updatedAt: copy.updatedAt });
+  expect(summary).toEqual({ id: copy.id, title: copy.title, tags: copy.tags, updatedAt: copy.updatedAt });
   expect(Date.parse(copy.createdAt)).toBeGreaterThanOrEqual(started);
   expect(copy.updatedAt).toBe(copy.createdAt);
   const ids = new Set<string>();
