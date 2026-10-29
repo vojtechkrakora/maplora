@@ -75,6 +75,7 @@ The following requirements are planned enhancements to be implemented after the 
 | 26 | Map Library Search and Sorting | Client-side filtering and sort persistence |
 | 27 | Copy as Markdown | Clipboard export for sharing via chat or email |
 | 28 | Map Tags | Tag assignment, autocomplete, AND-filter in map library |
+| 29 | Recently Opened Maps Bar | Quick switching between maps from within the editor |
 
 ---
 
@@ -330,8 +331,10 @@ The following requirements are planned enhancements to be implemented after the 
    - `Ctrl+Z` (Windows/Linux) / `Cmd+Z` (macOS): undo the most recent undoable operation
    - `Ctrl+Shift+Z` or `Ctrl+Y` (Windows/Linux) / `Cmd+Shift+Z` (macOS): redo the most recently undone operation
    - `Home`: re-centre the canvas on the root node (pan only, zoom unchanged)
+   - `Ctrl+S` (Windows/Linux) / `Cmd+S` (macOS): save the current map state manually; THE Application SHALL prevent the browser's default "Save page" behaviour and SHALL NOT trigger a file download
 2. WHEN the user presses `?` or activates the keyboard shortcut help button in the UI, THE Editor SHALL display a keyboard shortcut reference panel.
 3. WHEN a text input field is focused, THE Editor SHALL NOT trigger node-level shortcuts for `Tab`, `Delete`, `Backspace`, `ArrowUp`, `ArrowDown`, `ArrowLeft`, `ArrowRight`, or `Space`.
+4. THE Editor SHALL intercept `Ctrl+S` (Windows/Linux) and `Cmd+S` (macOS) globally at all times while the Editor is open, preventing the browser default "Save page" action, regardless of which element currently has focus.
 
 ---
 
@@ -555,3 +558,24 @@ The following requirements are planned enhancements to be implemented after the 
 13. THE Application SHALL perform all tag filtering on the client side using the map data already loaded in memory, without making additional server requests.
 14. THE `MapSummary` object returned by the list API SHALL include the `tags` array so that the map list screen can filter and display tags without loading the full `MapFile` for each map.
 15. IF a Map File does not contain a `tags` field (e.g., files created before this feature), THE Server SHALL treat the missing field as an empty array when reading the file, without rejecting or migrating the file.
+16. THE Application SHALL assign a persistent display color to each unique tag string, such that the same tag always renders in the same color across all map cards and tag controls.
+17. THE Application SHALL derive tag colors deterministically from the tag string itself (e.g. by hashing), so that no per-tag color data needs to be stored in Map Files or on the server, and the same tag name always produces the same color on any device or session.
+18. THE Application SHALL ensure that tag colors provide sufficient contrast against the card background for legibility in both the light and dark themes, and SHALL display the tag text in a contrasting foreground color (light or dark) chosen automatically based on the tag background color's luminance.
+
+---
+
+### Requirement 29: Recently Opened Maps Bar
+
+**User Story:** As a user, I want to see a list of recently opened maps while I am in the editor, so that I can quickly switch to another map without going back to the main list.
+
+#### Acceptance Criteria
+
+1. THE Editor SHALL display a recently opened maps bar showing the titles of the maps most recently opened in the current browser session, in reverse chronological order (most recently opened first).
+2. THE Application SHALL track the order in which maps are opened during a session and update the recently opened list each time a map is opened.
+3. THE recently opened maps bar SHALL display a maximum of 5 map titles; older entries beyond the 5 most recent SHALL NOT be shown.
+4. WHEN the user clicks a map title in the recently opened bar, THE Application SHALL navigate to that map's Editor view, loading the map as if it were opened from the list screen.
+5. THE recently opened maps bar SHALL exclude the currently open map from its entries.
+6. THE recently opened maps bar SHALL be accessible from within the Editor (e.g. displayed in the editor toolbar or as a collapsible panel).
+7. IF a map that appears in the recently opened list has been deleted (moved to trash) since it was last opened, THE Application SHALL omit that map from the recently opened list without displaying an error.
+8. THE recently opened list SHALL be stored in browser session state (e.g. a module-level variable or sessionStorage) and SHALL NOT persist across page reloads or new browser tabs.
+9. IF the recently opened list is empty (no other maps have been opened in this session), THE Application SHALL hide the recently opened bar or display a placeholder indicating no recent maps are available.

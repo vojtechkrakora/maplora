@@ -4,7 +4,7 @@
 
 This plan breaks Maplora into small, independently testable increments. Tasks are ordered so that each step produces a runnable, verifiable state of the application. The project is a TypeScript monorepo with a Vite-built React SPA served by a Hono API server inside a single Docker container. All data lives on the host filesystem as JSON files.
 
-MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Post-MVP requirements (Req 5, 10–11, 15, 17–20, 25–28) are optional tasks marked with `*`.
+MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Post-MVP requirements (Req 5, 10–11, 15, 17–20, 25–29) are optional tasks marked with `*`.
 
 ---
 
@@ -532,6 +532,65 @@ MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Po
     - Component: pressing `Home` while a non-input element is focused triggers re-centre; pressing `Home` while a text input is focused does not
     - _Requirements: 3.6, 14.6, 16.1_
 
+- [ ] 29. Ctrl+S global save shortcut (Post-MVP)
+  - [ ]* 29.1 Register global Ctrl+S / Cmd+S handler in `EditorPage`
+    - Add a `keydown` event listener on `document` (not the canvas container) in `EditorPage` that fires for `Ctrl+S` (Windows/Linux) and `Cmd+S` (macOS) at all times while the Editor is mounted, including when a text input has focus
+    - Call `event.preventDefault()` unconditionally to suppress the browser "Save page" dialog
+    - Trigger `editorStore.saveMap()` on each activation; if a save is already in progress, skip the duplicate (debounce guard already present in the save queue)
+    - Remove the listener when `EditorPage` unmounts
+    - _Requirements: 16.1, 16.4_
+
+  - [ ]* 29.2 Write component tests for Ctrl+S behaviour
+    - Assert `event.preventDefault()` is called when `Ctrl+S` is fired in the canvas area
+    - Assert `event.preventDefault()` is called when `Ctrl+S` is fired while a text input is focused
+    - Assert `editorStore.saveMap()` is called on each activation
+    - Assert the listener is removed on unmount (no save triggered after unmount)
+    - _Requirements: 16.4_
+
+- [ ] 30. Colored tags (Post-MVP)
+  - [ ]* 30.1 Implement deterministic tag color derivation
+    - Create `src/client/tagColor.ts`
+    - `tagColor(tag: string): { background: string; foreground: string }` — pure function, no side effects
+    - Derive a hue value (0–359) by hashing the tag string (e.g. djb2 or a simple sum-of-char-codes with modulo); use fixed saturation and lightness values that produce visually distinct, mid-range colors suitable for both light and dark card backgrounds
+    - Compute foreground color (black or white) based on the derived background color's relative luminance (WCAG formula): use white for dark backgrounds, black for light backgrounds
+    - The same tag string SHALL always produce the same `{ background, foreground }` pair regardless of session, device, or theme
+    - _Requirements: 28.16, 28.17, 28.18_
+
+  - [ ]* 30.2 Apply tag colors to tag chips in `MapCard` and tag filter controls
+    - In `MapCard`, apply `tagColor(tag).background` and `tagColor(tag).foreground` as inline styles on each tag chip/badge
+    - In the tag filter panel (`MapListPage`), apply the same tag colors to the clickable tag options
+    - The color derivation is purely client-side — no schema changes, no server calls
+    - _Requirements: 28.16, 28.17, 28.18_
+
+  - [ ]* 30.3 Write unit tests for `tagColor()`
+    - Test that the same tag string always returns the same `{ background, foreground }` pair (determinism)
+    - Test that two different tag strings with different names produce different hues (distinctness — use a set of at least 10 varied tag names)
+    - Test that the foreground is `#ffffff` for a dark background and `#000000` for a light background (luminance check)
+    - Test that the background and foreground values are valid CSS color strings
+    - _Requirements: 28.16, 28.17, 28.18_
+
+- [ ] 31. Recently opened maps bar (Post-MVP)
+  - [ ]* 31.1 Implement recently opened maps tracking in a session store
+    - Create `src/client/recentMapsStore.ts` (a Zustand store or a simple module-level array)
+    - `addRecentMap(summary: MapSummary)`: prepends the map to the list; removes any existing entry with the same Map ID; truncates the list to 5 entries; does not persist to localStorage or sessionStorage
+    - `getRecentMaps(currentMapId: string): MapSummary[]`: returns the list with the current map excluded
+    - The store is reset on page reload (session-scoped, module-level state)
+    - WHEN a map is opened in `EditorPage` (on `loadMap()` success), call `addRecentMap()` with the loaded map's summary
+    - _Requirements: 29.1, 29.2, 29.3, 29.5, 29.8_
+
+  - [ ]* 31.2 Render the recently opened maps bar in `EditorToolbar`
+    - Display `getRecentMaps(currentMapId)` as a horizontal list of clickable map title chips in `EditorToolbar`
+    - WHEN the user clicks a recent map chip, navigate to `/maps/{mapId}` (React Router `navigate`)
+    - IF the list is empty, hide the bar entirely (no placeholder text in the toolbar)
+    - Truncate long titles with an ellipsis (`text-overflow: ellipsis`) to prevent toolbar overflow
+    - IF a map in the recent list is opened and then deleted, it will be absent from the list on the next render because the store is not updated on deletion (the entry is simply stale; navigating to a deleted map will show the existing "map not found" error and return to the list)
+    - _Requirements: 29.4, 29.5, 29.6, 29.7, 29.9_
+
+  - [ ]* 31.3 Write unit and component tests for the recently opened maps bar
+    - Unit (`recentMapsStore`): adding 6 maps keeps only the 5 most recent; adding a duplicate Map ID moves it to the front; `getRecentMaps` excludes the current map; store resets between test runs (module re-import)
+    - Component: after opening map A then map B, the toolbar shows map A as a recent chip; current map B is not shown; clicking map A chip triggers navigation; bar is hidden when no recent maps exist
+    - _Requirements: 29.1, 29.3, 29.4, 29.5, 29.9_
+
 - [x] 23. Final checkpoint — all tests pass, Docker build verified
   - Ensure all tests pass, ask the user if questions arise.
 
@@ -697,7 +756,12 @@ All 333 automated tests passed across 28 files. Coverage includes unique root/de
     { "id": 35, "tasks": ["27.4", "27.5"] },
     { "id": 36, "tasks": ["27.6"] },
     { "id": 37, "tasks": ["28.1"] },
-    { "id": 38, "tasks": ["28.2", "28.3"] }
+    { "id": 38, "tasks": ["28.2", "28.3"] },
+    { "id": 39, "tasks": ["29.1"] },
+    { "id": 40, "tasks": ["29.2", "30.1"] },
+    { "id": 41, "tasks": ["30.2", "31.1"] },
+    { "id": 42, "tasks": ["30.3", "31.2"] },
+    { "id": 43, "tasks": ["31.3"] }
   ]
 }
 ```
