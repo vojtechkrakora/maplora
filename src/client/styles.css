@@ -420,7 +420,8 @@ label {
   overflow-wrap: anywhere;
 }
 .tag-filter-choices label.active {
-  background: var(--node-bg-depth-0);
+  outline: 2px solid currentColor;
+  outline-offset: -3px;
 }
 .tag-filter-choices input {
   width: 16px;
@@ -491,6 +492,7 @@ label {
   padding: 2px 6px;
   border: 0;
   background: transparent;
+  color: inherit;
   flex-shrink: 0;
 }
 .tag-empty {

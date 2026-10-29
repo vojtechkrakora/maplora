@@ -547,8 +547,8 @@ MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Po
     - Assert the listener is removed on unmount (no save triggered after unmount)
     - _Requirements: 16.4_
 
-- [ ] 30. Colored tags (Post-MVP)
-  - [ ]* 30.1 Implement deterministic tag color derivation
+- [x] 30. Colored tags (Post-MVP)
+  - [x]* 30.1 Implement deterministic tag color derivation
     - Create `src/client/tagColor.ts`
     - `tagColor(tag: string): { background: string; foreground: string }` — pure function, no side effects
     - Derive a hue value (0–359) by hashing the tag string (e.g. djb2 or a simple sum-of-char-codes with modulo); use fixed saturation and lightness values that produce visually distinct, mid-range colors suitable for both light and dark card backgrounds
@@ -556,13 +556,13 @@ MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Po
     - The same tag string SHALL always produce the same `{ background, foreground }` pair regardless of session, device, or theme
     - _Requirements: 28.16, 28.17, 28.18_
 
-  - [ ]* 30.2 Apply tag colors to tag chips in `MapCard` and tag filter controls
+  - [x]* 30.2 Apply tag colors to tag chips in `MapCard` and tag filter controls
     - In `MapCard`, apply `tagColor(tag).background` and `tagColor(tag).foreground` as inline styles on each tag chip/badge
     - In the tag filter panel (`MapListPage`), apply the same tag colors to the clickable tag options
     - The color derivation is purely client-side — no schema changes, no server calls
     - _Requirements: 28.16, 28.17, 28.18_
 
-  - [ ]* 30.3 Write unit tests for `tagColor()`
+  - [x]* 30.3 Write unit tests for `tagColor()`
     - Test that the same tag string always returns the same `{ background, foreground }` pair (determinism)
     - Test that two different tag strings with different names produce different hues (distinctness — use a set of at least 10 varied tag names)
     - Test that the foreground is `#ffffff` for a dark background and `#000000` for a light background (luminance check)
@@ -720,6 +720,14 @@ Task 29 implemented on 2026-10-29: `EditorPage` registers a document-level captu
 The shortcut retains input focus and unfinished text/drafts. Confirmed changes already autosave; clean maps need no redundant write, and failed operations retry through the existing serialized queue with normal rollback, revision handling and save-status feedback. No file download, schema, server endpoint or dependency is added. The shortcut reference and README document the action and its input behavior.
 
 All 347 automated tests passed across 29 files, including 14 new component/integration cases for Ctrl/Cmd and uppercase S, focused controls that stop propagation, active drafts, unrelated keys, route loading, live store actions, duplicate-save guards, real queue failure/retry and listener cleanup. Real Chrome verified cancellation on canvas, node text, drafts, options and modal controls; preservation of focus and unfinished edits; the shortcut reference; failed-save recovery without duplicate requests; persisted JSON after reload; native browser behavior after leaving the editor; and no downloads or browser errors. Browser checks used isolated temporary map data. Production build and formatting checks passed. Isolated Docker Compose verification passed the image build, static assets/API, bind-mounted JSON, duplication/import, restart/recreation and trash/restoration. Tasks 30–31 remain deferred.
+
+**Task 30 Implementation Notes**
+
+Task 30 implemented on 2026-10-29: the pure `tagColor(tag)` helper hashes the exact tag string with unsigned 32-bit djb2 to select one of 360 hues at fixed 60% saturation and 45% lightness. It converts the background to opaque sRGB hex and compares black/white WCAG contrast ratios using the rounded background's relative luminance. The selected foreground achieves at least 4.5:1 text contrast for every generated hue. Case, whitespace and Unicode spelling are retained; colors do not depend on theme, device, loaded maps or stored settings. Different names may share a hue within the finite range.
+
+The existing `MapTags` and `TagFilter` components apply these colors to card chips, assigned tags in the management dialog and clickable filter choices. Selected filter choices keep their color and add an outline alongside the checked checkbox. Removal buttons inherit the contrasting foreground; the extra-tag count badge remains neutral. No map schema, API, dependency or stored color metadata is added. README and architecture/product notes describe the behavior; task 31 remains deferred.
+
+All 355 automated tests passed across 30 files, including seven new helper cases for fixed stable mappings, eleven distinct varied names, exact string handling, 100 generated CSS/determinism cases and all 360 hues' contrast, plus a new component case covering shared colors across cards, management and selected filters in both themes. Existing add-tag and overflow-count tests also verify immediate colors and neutral counts. Production build and formatting checks passed. Real Chrome verified computed card/dialog/filter colors and text contrast in both themes; contrasting removal icons; keyboard/AND filtering and selected outlines; neutral counts; Unicode/32-character tags; 320–1440px layouts; reload and fresh-session consistency; unchanged files and no display-only requests; immediate coloring after a saved addition without color metadata; and no browser errors. Browser checks used isolated temporary map data. Isolated Docker Compose verification passed the image build, static assets/API, bind-mounted JSON, duplication/import, restart/recreation and trash/restoration.
 
 ## Task Dependency Graph
 

@@ -2,7 +2,13 @@ import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { MAX_TAGS, TagSchema, type MapSummary } from "../../shared/schema.js";
 import { useMapListStore } from "../stores/mapListStore";
+import { tagColor } from "../tagColor";
 import { Dialog } from "./Dialog";
+
+function tagStyle(tag: string) {
+  const { background, foreground } = tagColor(tag);
+  return { backgroundColor: background, color: foreground };
+}
 
 export function MapTags({ map }: { map: MapSummary }) {
   const [open, setOpen] = useState(false);
@@ -12,7 +18,7 @@ export function MapTags({ map }: { map: MapSummary }) {
       {tags.length > 0 && (
         <ul className="map-tags" aria-label={`Tags for ${map.title}`}>
           {tags.slice(0, 5).map((tag, index) => (
-            <li className="tag-chip" key={index}>
+            <li className="tag-chip" style={tagStyle(tag)} key={index}>
               {tag}
             </li>
           ))}
@@ -144,7 +150,7 @@ function TagDialog({ map, onClose }: { map: MapSummary; onClose(): void }) {
       {tags.length > 0 ? (
         <ul className="tag-editor-list" aria-label="Assigned tags">
           {tags.map((tag, index) => (
-            <li className="tag-chip" key={index}>
+            <li className="tag-chip" style={tagStyle(tag)} key={index}>
               <span>{tag}</span>
               <button
                 type="button"
@@ -194,6 +200,7 @@ export function TagFilter() {
               {choices.map((tag) => (
                 <label
                   className={s.activeTags.includes(tag) ? "active" : ""}
+                  style={tagStyle(tag)}
                   key={tag}
                 >
                   <input

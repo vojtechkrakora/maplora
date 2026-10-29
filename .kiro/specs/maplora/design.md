@@ -145,6 +145,8 @@ interface MapListState {
 
 The tag management dialog on each card uses a native datalist for alphabetically sorted suggestions from the complete loaded library, filtered by input. Successful saves replace only the returned summary in memory; failed saves retain the existing tags and entered text for retry. Cards display the first five tags plus a count of the remainder. The tag filter uses checkbox selections with AND semantics and a clear-all action. Search, tag selection and sort never refetch the list. Import clears search and tag filters so the imported card stays visible.
 
+Tag display colors come from the pure client helper `tagColor(tag)` in `src/client/tagColor.ts`. An unsigned 32-bit djb2 hash of the exact UTF-16 string selects a hue from 0–359 at fixed 60% saturation and 45% lightness. The helper converts to opaque sRGB hex and selects black or white text by comparing WCAG contrast ratios using the rounded background's relative luminance. Every generated hue has at least 4.5:1 text contrast. The same inline colors appear on card chips, assigned-tag chips and filter choices in either theme, without storage, API calls or schema changes. Selected filter choices retain their color and add an outline alongside their checked checkbox; the extra-tag count badge remains neutral.
+
 **`editorStore`** — editor state (loaded when EditorPage mounts)
 ```typescript
 interface EditorState {

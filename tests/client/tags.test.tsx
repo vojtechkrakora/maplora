@@ -21,6 +21,7 @@ import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
 import { MapListPage } from "../../src/client/pages/MapListPage";
 import { useMapListStore } from "../../src/client/stores/mapListStore";
+import { tagColor } from "../../src/client/tagColor";
 import { fixture } from "../fixtures";
 import type { MapSummary } from "../../src/shared/schema";
 const originals: MapSummary[] = [
@@ -115,6 +116,53 @@ async function open(title = "Draft") {
     input: screen.getByRole("combobox", { name: "New tag" }),
   };
 }
+it("shares deterministic colors across cards, assigned tags and selected filter choices in both themes", async () => {
+  app();
+  await screen.findByRole("heading", { name: "Alpha plan" });
+  const user = userEvent.setup();
+  await user.click(screen.getByText("Filter by tags", { exact: true }));
+  const chip = (title: string, tag: string) =>
+    within(screen.getByRole("list", { name: `Tags for ${title}` })).getByText(
+      tag,
+    );
+  function expectTagColor(element: HTMLElement, tag: string) {
+    const { background, foreground } = tagColor(tag);
+    expect(element).toHaveStyle({
+      backgroundColor: background,
+      color: foreground,
+    });
+  }
+  const saved = structuredClone(useMapListStore.getState().maps);
+  for (const theme of ["light", "dark"]) {
+    document.documentElement.dataset.theme = theme;
+    expectTagColor(chip("Alpha plan", "work"), "work");
+    expectTagColor(chip("Beta plan", "work"), "work");
+    expectTagColor(chip("Alpha plan", "Research"), "Research");
+    const filter = screen.getByRole("checkbox", { name: "work" });
+    expectTagColor(filter.closest("label")!, "work");
+    await user.click(filter);
+    expect(filter).toBeChecked();
+    expect(filter.closest("label")).toHaveClass("active");
+    expectTagColor(filter.closest("label")!, "work");
+    expect(titles()).toEqual(["Beta plan", "Alpha plan"]);
+    await user.click(filter);
+  }
+  await user.click(
+    screen.getByRole("button", { name: "Manage tags for Alpha plan" }),
+  );
+  for (const tag of ["work", "Research"])
+    expectTagColor(
+      within(screen.getByRole("list", { name: "Assigned tags" }))
+        .getByText(tag)
+        .closest("li")!,
+      tag,
+    );
+  delete document.documentElement.dataset.theme;
+  expect(useMapListStore.getState().maps).toEqual(saved);
+  expect(list).toHaveBeenCalledTimes(1);
+  expect(patch).not.toHaveBeenCalled();
+});
+
 it("derives sorted unique tags and combines AND filtering with search and all sort options without requests", () => {
   useMapListStore.setState({ maps });
   const s = useMapListStore.getState();
@@ -200,6 +248,18 @@ it("adds and removes tags, updates cards and autocomplete immediately, and prese
   await user.type(input, "new topic");
   await user.click(within(dialog).getByRole("button", { name: "Add tag" }));
   await waitFor(() => expect(input).toHaveValue(""));
+  const assigned = within(screen.getByRole("list", { name: "Assigned tags" }))
+    .getByText("new topic")
+    .closest("li")!;
+  const card = within(
+    screen.getByRole("list", { name: "Tags for Draft" }),
+  ).getByText("new topic");
+  const colors = tagColor("new topic");
+  for (const chip of [assigned, card])
+    expect(chip).toHaveStyle({
+      backgroundColor: colors.background,
+      color: colors.foreground,
+    });
   expect(
     within(dialog).getByRole("button", { name: "Remove tag new topic" }),
   ).toBeInTheDocument();
@@ -245,6 +305,8 @@ it("displays only five tags with an additional count and exposes all tags for re
   ).getAllByRole("listitem");
   expect(chips).toHaveLength(6);
   expect(chips[5]).toHaveTextContent("+3");
+  expect(chips[5].style.backgroundColor).toBe("");
+  expect(chips[5].style.color).toBe("");
   expect(
     within(dialog).getAllByRole("button", { name: /^Remove tag/ }),
   ).toHaveLength(8);
