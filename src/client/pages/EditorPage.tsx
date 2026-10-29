@@ -24,6 +24,23 @@ export function EditorPage() {
       navigate("/", { replace: true, state: { error: s.error } });
   }, [loadedId, mapId, s.loading, s.error, s.map, s.gone, navigate]);
   useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "s")
+        return;
+      event.preventDefault();
+      const current = useEditorStore.getState();
+      if (
+        !current.loading &&
+        current.map?.id === mapId &&
+        current.saving !== "saving"
+      )
+        void current.saveMap();
+    };
+    // Inputs and dialogs stop bubbling; capture keeps saving available inside them.
+    document.addEventListener("keydown", handler, true);
+    return () => document.removeEventListener("keydown", handler, true);
+  }, [mapId]);
+  useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
       if (
         useEditorStore.getState().saving === "saving" ||

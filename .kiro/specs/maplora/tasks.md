@@ -532,15 +532,15 @@ MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Po
     - Component: pressing `Home` while a non-input element is focused triggers re-centre; pressing `Home` while a text input is focused does not
     - _Requirements: 3.6, 14.6, 16.1_
 
-- [ ] 29. Ctrl+S global save shortcut (Post-MVP)
-  - [ ]* 29.1 Register global Ctrl+S / Cmd+S handler in `EditorPage`
+- [x] 29. Ctrl+S global save shortcut (Post-MVP)
+  - [x]* 29.1 Register global Ctrl+S / Cmd+S handler in `EditorPage`
     - Add a `keydown` event listener on `document` (not the canvas container) in `EditorPage` that fires for `Ctrl+S` (Windows/Linux) and `Cmd+S` (macOS) at all times while the Editor is mounted, including when a text input has focus
     - Call `event.preventDefault()` unconditionally to suppress the browser "Save page" dialog
     - Trigger `editorStore.saveMap()` on each activation; if a save is already in progress, skip the duplicate (debounce guard already present in the save queue)
     - Remove the listener when `EditorPage` unmounts
     - _Requirements: 16.1, 16.4_
 
-  - [ ]* 29.2 Write component tests for Ctrl+S behaviour
+  - [x]* 29.2 Write component tests for Ctrl+S behaviour
     - Assert `event.preventDefault()` is called when `Ctrl+S` is fired in the canvas area
     - Assert `event.preventDefault()` is called when `Ctrl+S` is fired while a text input is focused
     - Assert `editorStore.saveMap()` is called on each activation
@@ -712,6 +712,14 @@ Task 28 implemented on 2026-10-29: the root has a 160px minimum width, larger pa
 The existing editor toolbar offers a target icon labeled Re-centre root with a Home tooltip. Unmodified Home uses the existing keyboard handler and also works from toolbar buttons and without a selected node. Both paths pan to the root center over 200ms through React Flow's `setCenter()`, explicitly retaining the current zoom and using linear interpolation to avoid temporary scaling during the animation. Coordinates use the current absolute root position and rendered dimensions converted by zoom, with React Flow/hidden-measurement fallbacks. Rendered bounds keep an active text field centered when it outgrows the cached label size. The action retains selection, history, collapse state and unfinished edits/drafts, and makes no save request. Pointer activation preserves text-input focus. Native Home behavior remains in inputs, textareas, selects, editable content and dialogs; modified Home combinations are not intercepted. Branch dragging disables the toolbar action and ignores Home. The shortcut reference and README include the new action.
 
 All 333 automated tests passed across 28 files. Coverage includes unique root/depth detection, custom color precedence/reset, unchanged descendant palette cycles, root preview and PNG styles, toolbar/keyboard routing, exact measured center/current zoom/linear interpolation, live editor bounds, unselected/editing/draft/saving/error states, loading another map, measurement fallback, dragging guards and native Home behavior. Real Chrome verified both themes' root size, weight, padding, border and background; toolbar and Home centering after pan/zoom; frame-by-frame constant zoom; accurate centering during text editing and drafts without losing input/focus or writing files; shortcut reference/dialog guards; 320–1440px layouts; the root accent in exported PNG raster pixels; and custom root color/theme/reset behavior. No browser errors occurred. Production build and formatting checks passed. Isolated Docker Compose verification passed the image build, static assets/API, bind-mounted JSON, duplication/import, restart/recreation and trash/restoration. All tasks in the current plan are complete.
+
+**Task 29 Implementation Notes**
+
+Task 29 implemented on 2026-10-29: `EditorPage` registers a document-level capture listener for Ctrl+S / Cmd+S, including uppercase S. It suppresses the browser's Save page dialog even inside node text inputs, node options and dialogs that stop bubbling. Each activation reads the current store and calls its existing `saveMap()` entry point for the loaded route's map, skipping duplicate saves while a write is in progress. Loading another map cannot save the previous map. The listener is removed on unmount and rebound on map-route changes; native browser saving resumes outside the editor, including after React StrictMode lifecycle checks.
+
+The shortcut retains input focus and unfinished text/drafts. Confirmed changes already autosave; clean maps need no redundant write, and failed operations retry through the existing serialized queue with normal rollback, revision handling and save-status feedback. No file download, schema, server endpoint or dependency is added. The shortcut reference and README document the action and its input behavior.
+
+All 347 automated tests passed across 29 files, including 14 new component/integration cases for Ctrl/Cmd and uppercase S, focused controls that stop propagation, active drafts, unrelated keys, route loading, live store actions, duplicate-save guards, real queue failure/retry and listener cleanup. Real Chrome verified cancellation on canvas, node text, drafts, options and modal controls; preservation of focus and unfinished edits; the shortcut reference; failed-save recovery without duplicate requests; persisted JSON after reload; native browser behavior after leaving the editor; and no downloads or browser errors. Browser checks used isolated temporary map data. Production build and formatting checks passed. Isolated Docker Compose verification passed the image build, static assets/API, bind-mounted JSON, duplication/import, restart/recreation and trash/restoration. Tasks 30–31 remain deferred.
 
 ## Task Dependency Graph
 

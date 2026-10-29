@@ -861,6 +861,7 @@ export function MindMapCanvas() {
               ["Alt + ↑ / ↓", "Move sibling up / down"],
               ["← / →", "Parent / first child"],
               ["Home", "Re-centre root"],
+              ["Ctrl / ⌘ + S", "Save map"],
               ["Ctrl / ⌘ + Z", "Undo"],
               ["Ctrl / ⌘ + Shift + Z; Ctrl + Y", "Redo"],
               ["Escape", "Cancel edit or close dialog"],

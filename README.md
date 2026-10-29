@@ -38,7 +38,7 @@ The application has no authentication. Deploy it within a trusted private networ
 - Choose **Tags** on a library card to add or remove tags; each change saves automatically. Tags accept 1–32 characters, cannot be all whitespace or contain commas, and are limited to 20 per map. Existing tags are suggested alphabetically as you type. Tags retain their exact spelling and case; the editor prevents adding the same tag twice. Cards show the first five tags and a “+N” count for the rest. **Filter by tags** matches every selected tag and combines with title search and sorting, entirely in browser memory. **Clear all tags** clears the selection.
 - **Duplicate** creates an independent copy with fresh map and node IDs, a new creation time, and revision 1. Its title ends in “ (Copy)”; long source titles are shortened to keep the result within 100 characters. Labels, branch order, collapse states, tags, and stored styles are preserved.
 - Select a node and use the floating toolbar, double-click, or keyboard shortcuts. Node labels accept 1–200 characters.
-- Changes save automatically. The toolbar reports saving, saved, and failed states. Failed mutations roll back and offer **Retry change**, except branch moves, which show a temporary error and can be dragged again.
+- Changes save automatically. The toolbar reports saving, saved, and failed states. Failed mutations roll back and offer **Retry change**, except branch moves, which show a temporary error and can be dragged again. **Ctrl+S / Cmd+S** also retries a failed change through the same save queue. It works throughout the editor, including text fields and dialogs, and suppresses the browser's Save page dialog. An ongoing save is not duplicated; an already saved map needs no extra write. The shortcut preserves input focus and unfinished text/drafts; confirm those with Enter or blur to save them.
 - **Undo / Redo** in the editor toolbar restores the last 50 node changes, including additions, deletions, text edits, branch moves, sibling order, styling and collapse state. Each undo or redo saves automatically. New changes clear redo; failed saves restore the canvas and history and offer retry. Finish or cancel text editing before using the buttons; text fields retain native undo shortcuts. History resets when you reopen or reload a map.
 - A new node is a local draft until you confirm its text. Escape or an empty draft cancels it without a write.
 - Branches arrange themselves on both sides of the root. Collapse controls hide descendants while preserving their individual collapse states.
@@ -66,6 +66,7 @@ The application has no authentication. Deploy it within a trusted private networ
 | Alt + Up / Down | Move selected sibling earlier / later |
 | Left / Right | Parent / first visible child |
 | Home | Re-centre root without changing zoom |
+| Ctrl+S / Cmd+S | Save map / retry failed change (also in text fields and dialogs) |
 | Ctrl+Z / Cmd+Z | Undo |
 | Ctrl+Shift+Z / Cmd+Shift+Z / Ctrl+Y | Redo |
 | Escape | Cancel editing or close a dialog |
@@ -107,7 +108,7 @@ The Compose verification requires a working local Docker daemon. It uses a separ
 
 ## Scope and limitations
 
-This implements MVP tasks 1–14, post-MVP tasks 15–22 (duplicate maps, reorder siblings, move branches, visual customization, light/dark themes, JSON export/import, PNG export, and undo/redo), tasks 24–28 (library search/sorting, Copy as Markdown, depth-based node colors, map tags, and root prominence/re-centering), and the Docker verification checkpoint in the Kiro plan. Tasks and test coverage are tracked in `.kiro/specs/maplora/tasks.md`.
+This implements MVP tasks 1–14, post-MVP tasks 15–22 (duplicate maps, reorder siblings, move branches, visual customization, light/dark themes, JSON export/import, PNG export, and undo/redo), tasks 24–29 (library search/sorting, Copy as Markdown, depth-based node colors, map tags, root prominence/re-centering, and the global save shortcut), and the Docker verification checkpoint in the Kiro plan. Colored tags and the recently opened maps bar (tasks 30–31) remain planned. Tasks and test coverage are tracked in `.kiro/specs/maplora/tasks.md`.
 
 Tag filters last for the current app session; import clears them to reveal the imported map. Tag changes in another tab become visible after reloading the library.
 

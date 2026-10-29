@@ -377,6 +377,12 @@ React Flow renders nodes as absolutely-positioned HTML `<div>` elements inside a
 
 ## Save / Persistence Flow
 
+### Global save shortcut
+
+While `EditorPage` is mounted, a document-level `keydown` listener handles Ctrl+S and Cmd+S in the capture phase, including inside text inputs, node options and dialogs that stop bubbling. It always prevents the browser's Save page action. The handler reads the current editor store and invokes `saveMap()` for the loaded route's map unless loading or saving is already in progress. It is removed on unmount and rebound when the route's map ID changes, so leaving the editor restores native browser behavior.
+
+The shortcut uses the existing serialized queue and retry behavior: confirmed changes already autosave; `saveMap()` retries a failed operation, and a clean map needs no redundant write. It does not download a file, blur inputs or confirm unfinished text/drafts. Existing rollback, stale-revision recovery and save-status feedback remain in effect.
+
 ### Save request lifecycle
 
 ```

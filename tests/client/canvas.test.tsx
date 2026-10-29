@@ -181,6 +181,7 @@ it("routes Home from canvas and toolbar buttons while dialogs and inputs keep it
   expect(methods.setCenter).toHaveBeenCalledTimes(2);
   fireEvent.click(screen.getByRole("button", { name: "Keyboard shortcuts" }));
   expect(screen.getByRole("dialog")).toHaveTextContent("HomeRe-centre root");
+  expect(screen.getByRole("dialog")).toHaveTextContent("Ctrl / ⌘ + SSave map");
   expect(
     fireEvent.keyDown(
       screen.getByRole("button", { name: "Back to thinking" }),
