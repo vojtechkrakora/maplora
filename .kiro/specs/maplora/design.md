@@ -321,6 +321,8 @@ flowchart LR
 
 React Flow provides built-in pan (mouse drag on empty canvas) and zoom (wheel, ctrl+wheel, pinch). The zoom level is clamped to [10%, 200%] (Requirement 13.4) by setting `minZoom={0.1}` and `maxZoom={2}` on the `<ReactFlow>` component. Fit-to-screen uses React Flow's `fitView()` API, which automatically centers and scales to show all nodes.
 
+**Re-centre root**: a target icon in the existing editor toolbar and unmodified `Home` call the same action in `MindMapCanvas`. It reads the current root with React Flow’s `getInternalNode()`, adds half its rendered width/height (converted from screen pixels by the current zoom) to its absolute position, and calls `setCenter(x, y, { zoom: flow.getZoom(), duration: 200, interpolate: 'linear' })`. Rendered bounds account for text fields that outgrow cached label sizes. Before DOM/React Flow measurement is available, the action falls back to the existing layout position and hidden measurement (then `DEFAULT_SIZE`). Passing the current zoom explicitly prevents React Flow's default maximum zoom from changing the scale; linear interpolation keeps zoom constant throughout the pan rather than briefly scaling with the default smooth interpolation. This changes only the viewport: map data, selection, collapse states, history and drafts remain intact. Pointer activation retains focus in an active text input. The existing keyboard handler excludes text fields, editable content, select controls and dialogs; modified Home combinations retain their native behavior. Re-centering is disabled during branch dragging, and Home appears in the shortcut reference.
+
 ---
 
 ## Undo / Redo
@@ -364,6 +366,8 @@ React Flow renders nodes as absolutely-positioned HTML `<div>` elements inside a
 - Built-in accessibility (ARIA attributes on nodes)
 
 **Node editing**: When a node enters edit mode (double-click or F2), the static text label is swapped for an `<input>` element. On blur or Enter, the edit is confirmed. On Escape, the original text is restored. This is managed by a `isEditing` boolean on the node component.
+
+**Root appearance**: only the depth-zero node receives `--node-bg-root`; deeper palette cycles still use `--node-bg-depth-0` at depth 6, 12, etc. Both themes define a separate root background and `--node-root-border`. The existing root class uses a 160px minimum width, 22px vertical padding, bold text and a 2px border; other nodes retain their depth palette and geometry. Custom background/text/border colors continue to override the theme. The shared appearance helper keeps the live canvas, node options preview/color picker and PNG renderer consistent. Hidden measurements and PNG measurements use the same root class so layout, centering and exports account for its larger bounds.
 
 **Selection**: React Flow's built-in selection handles the selected-node highlight. The selected node's ID is mirrored in `editorStore.selectedNodeId` for keyboard shortcut handlers.
 

@@ -71,6 +71,8 @@ it("captures the React Flow container at 2× with white background and no webfon
     expect(element.querySelectorAll(".react-flow__node")).toHaveLength(1);
     expect(element.querySelector("input, button")).toBeNull();
     expect(element.textContent).toContain(fixture().root.text);
+    const root = element.querySelector<HTMLElement>(".root-node")!;
+    expect(root.style.backgroundColor).toBe("var(--node-bg-root)");
     expect(options).toMatchObject({
       width: 264,
       height: 144,

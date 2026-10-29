@@ -252,6 +252,32 @@ export function MindMapCanvas() {
     () => (map ? computeLayout(map, sizes) : new Map()),
     [map, sizes],
   );
+  function recentreRoot() {
+    if (!map || dragRef.current) return;
+    const root = flow.getInternalNode(map.root.id);
+    const position =
+      root?.internals.positionAbsolute ?? positions.get(map.root.id);
+    const size = sizes.get(map.root.id) ?? DEFAULT_SIZE;
+    if (!position) return;
+    const zoom = flow.getZoom();
+    // An active text field can outgrow the cached label measurements.
+    const bounds = canvas.current
+      ?.querySelector<HTMLElement>(
+        `.react-flow__node[data-id="${map.root.id}"]`,
+      )
+      ?.getBoundingClientRect();
+    const width = bounds?.width
+      ? bounds.width / zoom
+      : (root?.measured?.width ?? size.width);
+    const height = bounds?.height
+      ? bounds.height / zoom
+      : (root?.measured?.height ?? size.height);
+    void flow.setCenter(position.x + width / 2, position.y + height / 2, {
+      zoom,
+      duration: 200,
+      interpolate: "linear",
+    });
+  }
   function cancelDrag() {
     dragRef.current = null;
     setDrag(null);
@@ -517,9 +543,16 @@ export function MindMapCanvas() {
         if (
           e.ctrlKey ||
           e.metaKey ||
+          e.key === "Home" ||
           !(e.target as HTMLElement).closest("button")
         )
-          handleEditorKey(e.nativeEvent, s, remove, () => setHelp(true));
+          handleEditorKey(
+            e.nativeEvent,
+            s,
+            remove,
+            () => setHelp(true),
+            recentreRoot,
+          );
         if (
           e.nativeEvent.defaultPrevented &&
           (e.ctrlKey || e.metaKey) &&
@@ -612,6 +645,28 @@ export function MindMapCanvas() {
               aria-hidden="true"
             >
               <path d="m15 4 5 5-5 5m5-5H10a6 6 0 0 0 0 12" />
+            </svg>
+          </button>
+          <button
+            className="recentre-root"
+            aria-label="Re-centre root"
+            title="Re-centre root (Home)"
+            disabled={!!drag}
+            onPointerDown={(event) => event.preventDefault()}
+            onClick={recentreRoot}
+          >
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="12" r="7" />
+              <circle cx="12" cy="12" r="2" />
+              <path d="M12 2v3m0 14v3M2 12h3m14 0h3" />
             </svg>
           </button>
           <CopyMarkdownButton map={s.map!} />
@@ -805,6 +860,7 @@ export function MindMapCanvas() {
               ["↑ / ↓", "Previous / next sibling"],
               ["Alt + ↑ / ↓", "Move sibling up / down"],
               ["← / →", "Parent / first child"],
+              ["Home", "Re-centre root"],
               ["Ctrl / ⌘ + Z", "Undo"],
               ["Ctrl / ⌘ + Shift + Z; Ctrl + Y", "Redo"],
               ["Escape", "Cancel edit or close dialog"],

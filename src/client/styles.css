@@ -18,6 +18,8 @@
   --edge: #94b39e;
   --grid: #d6ddd3;
   --node: #fff;
+  --node-bg-root: #c9e2cb;
+  --node-root-border: #326748;
   --node-bg-depth-0: #dcebdc;
   --node-bg-depth-1: #e3edf7;
   --node-bg-depth-2: #f2e5ee;
@@ -752,7 +754,8 @@ label {
   flex-shrink: 0;
 }
 .theme-toggle,
-.history-button {
+.history-button,
+.recentre-root {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -853,10 +856,11 @@ label {
   color: var(--text);
 }
 .root-node {
-  border-color: var(--accent);
-  padding: 20px 28px;
+  min-width: 160px;
+  border: 2px solid var(--node-root-border);
+  padding: 22px 28px;
   font-size: 16px;
-  font-weight: 500;
+  font-weight: 700;
 }
 .node-label {
   overflow-wrap: anywhere;
@@ -1110,6 +1114,8 @@ label {
   --bg: #19221e;
   --surface: #212c25;
   --node: #25352b;
+  --node-bg-root: #365c40;
+  --node-root-border: #86b28f;
   --node-bg-depth-0: #304b38;
   --node-bg-depth-1: #293f55;
   --node-bg-depth-2: #493449;

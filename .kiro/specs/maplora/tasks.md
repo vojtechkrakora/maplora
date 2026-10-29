@@ -510,22 +510,22 @@ MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Po
     - Component (MSW): tag management control adds/removes tags; autocomplete shows existing tags; "+N" badge appears when >5 tags; tag filter filters map cards; clear-all resets filter
     - _Requirements: 28.3, 28.4, 28.11, 28.12, 28.13, 28.14, 28.15_
 
-- [ ] 28. Root node prominence and re-centre (Post-MVP)
-  - [ ]* 28.1 Apply visually distinct styling to the root node in `MindMapNode`
+- [x] 28. Root node prominence and re-centre (Post-MVP)
+  - [x]* 28.1 Apply visually distinct styling to the root node in `MindMapNode`
     - In `MindMapNode`, detect whether the node is the root (depth 0 or an `isRoot` prop passed from `MindMapCanvas`)
     - Root node CSS: larger minimum width and padding than non-root nodes, bolder font weight, a prominent themed accent border (e.g. 2–3px solid using `--color-accent` or `--node-root-border`), and a dedicated root background color defined as a CSS custom property in both light and dark theme palettes (`--node-bg-root`)
     - Root node styling overrides the depth-0 palette color set in task 26 — the root gets its own distinct `--node-bg-root` value that stands apart from the depth-based palette
     - WHERE `node.style?.backgroundColor` is set by the user, that custom color takes precedence over `--node-bg-root`, consistent with the existing customization override rules (Req 15.6)
     - _Requirements: 3.6_
 
-  - [ ]* 28.2 Add "Re-centre root" toolbar button and `Home` keyboard shortcut
+  - [x]* 28.2 Add "Re-centre root" toolbar button and `Home` keyboard shortcut
     - Add a "Re-centre root" button to `EditorToolbar` (e.g. a target/crosshair icon with tooltip)
     - On activation: call React Flow's `setCenter(rootX, rootY, { duration: 200 })` to pan the canvas so the root node is at the centre of the viewport, without changing the zoom level
     - Register `Home` key in the existing keyboard shortcut handler in `EditorPage`; fire the re-centre action when no text input is focused
     - Add `Home` → "Re-centre root" to the keyboard shortcut reference panel
     - _Requirements: 14.6, 16.1_
 
-  - [ ]* 28.3 Write unit and component tests
+  - [x]* 28.3 Write unit and component tests
     - Unit: `isRoot` / depth-0 detection returns `true` for the root node and `false` for all others
     - Component: root node has a CSS class or inline style that differs from a depth-1 node; non-root nodes are unaffected
     - Component: "Re-centre root" button is present in the toolbar; clicking it calls the React Flow `setCenter` API with the root node's coordinates
@@ -645,6 +645,14 @@ Task 27 implemented on 2026-10-29: maps and library summaries include ordered ta
 `PATCH /api/maps/:mapId/tags` validates the complete tag array, acquires the existing map lock, reads the latest map, increments revision/update time and saves through the existing atomic write path. It returns the updated summary. Library cards offer a Tags dialog with native datalist autocomplete from alphabetically sorted unique tags across the full loaded library, immediate add/remove saves, inline validation, busy guards and retryable failures without losing input or saved tags. Cards show the first five chips followed by a +N badge. The library tag dropdown matches all selected tags and combines with title search and sorting without further requests. A selected tag remains removable if its last matching map disappears. Import clears search/tag filters to keep the imported card visible. Duplication, JSON transfer, trash/restoration and editor revision-conflict recovery preserve tags. No new dependencies were added. Root prominence and re-centering (task 28) remain deferred.
 
 All 315 automated tests passed across 28 files, including 35 new cases for schema limits, legacy files remaining byte/mtime identical, live HTTP persistence, invalid routes/payloads, concurrent metadata changes, stale revisions, write failure/retry and temporary-file cleanup, duplication/import/trash, editor saves/undo/redo retaining tags, local AND/search/sort filtering, sorted unique suggestions, first-five/+N chips, inline validation, repeated-click guards, failure recovery, focus, empty filters and removing a filtered card. The existing generated map round-trip property now includes tags. Real Chrome passed add/remove, autocomplete, exact limits, duplicate prevention, failed-save retry, focus restoration, local filtering, disappearing cards, unchanged legacy files, reload/duplication persistence and 320–1440px light/dark layouts without page errors. Filtering a 500-map library rendered in 16ms. Production build, formatting and isolated Docker Compose verification passed, including tags in original/duplicate/imported JSON after restart and container recreation, plus trash/restoration.
+
+**Task 28 Implementation Notes**
+
+Task 28 implemented on 2026-10-29: the root has a 160px minimum width, larger padding, bold text, a 2px themed accent border and a dedicated `--node-bg-root` background in both light and dark themes. Depth-zero detection selects the root background; descendants continue cycling through the six-color depth palette, including the separate depth-0 palette slot at depths 6, 12 and beyond. Custom background, text and border colors retain precedence. Resetting the root background restores its theme accent. The live canvas, hidden size measurement, node options/color picker/preview and PNG export share the same appearance and root class, keeping rendering and layout consistent. No stored map data or schema changes are required.
+
+The existing editor toolbar offers a target icon labeled Re-centre root with a Home tooltip. Unmodified Home uses the existing keyboard handler and also works from toolbar buttons and without a selected node. Both paths pan to the root center over 200ms through React Flow's `setCenter()`, explicitly retaining the current zoom and using linear interpolation to avoid temporary scaling during the animation. Coordinates use the current absolute root position and rendered dimensions converted by zoom, with React Flow/hidden-measurement fallbacks. Rendered bounds keep an active text field centered when it outgrows the cached label size. The action retains selection, history, collapse state and unfinished edits/drafts, and makes no save request. Pointer activation preserves text-input focus. Native Home behavior remains in inputs, textareas, selects, editable content and dialogs; modified Home combinations are not intercepted. Branch dragging disables the toolbar action and ignores Home. The shortcut reference and README include the new action.
+
+All 333 automated tests passed across 28 files. Coverage includes unique root/depth detection, custom color precedence/reset, unchanged descendant palette cycles, root preview and PNG styles, toolbar/keyboard routing, exact measured center/current zoom/linear interpolation, live editor bounds, unselected/editing/draft/saving/error states, loading another map, measurement fallback, dragging guards and native Home behavior. Real Chrome verified both themes' root size, weight, padding, border and background; toolbar and Home centering after pan/zoom; frame-by-frame constant zoom; accurate centering during text editing and drafts without losing input/focus or writing files; shortcut reference/dialog guards; 320–1440px layouts; the root accent in exported PNG raster pixels; and custom root color/theme/reset behavior. No browser errors occurred. Production build and formatting checks passed. Isolated Docker Compose verification passed the image build, static assets/API, bind-mounted JSON, duplication/import, restart/recreation and trash/restoration. All tasks in the current plan are complete.
 
 ## Task Dependency Graph
 

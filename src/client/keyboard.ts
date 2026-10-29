@@ -14,6 +14,7 @@ export function handleEditorKey(
   store: EditorState,
   remove: (id: string) => void,
   showHelp: () => void,
+  recentreRoot: () => void,
 ) {
   if (
     (event.target as HTMLElement)?.closest?.(
@@ -43,6 +44,11 @@ export function handleEditorKey(
         void store.reorderNode(id, index + (event.key === "ArrowUp" ? -1 : 1));
       }
     }
+    return;
+  }
+  if (event.key === "Home" && !event.shiftKey && map) {
+    event.preventDefault();
+    recentreRoot();
     return;
   }
   if (event.key === "?") {

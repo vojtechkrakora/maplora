@@ -30,18 +30,21 @@ function setup(selected = "child") {
     redoStack: [map],
   } as unknown as EditorState;
   const remove = vi.fn(),
-    help = vi.fn();
+    help = vi.fn(),
+    recentre = vi.fn();
   render(
     <div
       tabIndex={0}
       aria-label="Canvas"
-      onKeyDown={(e) => handleEditorKey(e.nativeEvent, store, remove, help)}
+      onKeyDown={(e) =>
+        handleEditorKey(e.nativeEvent, store, remove, help, recentre)
+      }
     >
       <input aria-label="Node text" />
     </div>,
   );
   screen.getByLabelText("Canvas").focus();
-  return { store, remove, help, user: userEvent.setup() };
+  return { store, remove, help, recentre, user: userEvent.setup() };
 }
 it.each([
   ["{Tab}", "addNode", ["child"]],
@@ -102,6 +105,7 @@ it("ignores history shortcuts in native text fields and dialogs", async () => {
     store,
     vi.fn(),
     vi.fn(),
+    vi.fn(),
   );
   expect(store.undo).not.toHaveBeenCalled();
 });
@@ -130,3 +134,47 @@ it("ignores node shortcuts while typing", async () => {
   await user.keyboard("{Alt>}{ArrowUp}{ArrowDown}{/Alt}");
   expect(store.reorderNode).not.toHaveBeenCalled();
 });
+
+it("re-centres with Home without requiring a selected node", async () => {
+  const { store, recentre, user } = setup();
+  store.selectedNodeId = null;
+  await user.keyboard("{Home}");
+  expect(recentre).toHaveBeenCalledOnce();
+  await user.keyboard(
+    "{Control>}{Home}{/Control}{Meta>}{Home}{/Meta}{Alt>}{Home}{/Alt}{Shift>}{Home}{/Shift}",
+  );
+  expect(recentre).toHaveBeenCalledOnce();
+  store.map = null;
+  await user.keyboard("{Home}");
+  expect(recentre).toHaveBeenCalledOnce();
+});
+it.each(["input", "textarea", "select", "contenteditable", "dialog"])(
+  "preserves native Home behavior inside %s",
+  (kind) => {
+    const { store, recentre } = setup();
+    const target = document.createElement(
+      kind === "contenteditable" || kind === "dialog" ? "div" : kind,
+    );
+    if (kind === "contenteditable")
+      target.setAttribute("contenteditable", "true");
+    if (kind === "dialog") target.setAttribute("role", "dialog");
+    const preventDefault = vi.fn();
+    handleEditorKey(
+      {
+        key: "Home",
+        target,
+        ctrlKey: false,
+        metaKey: false,
+        altKey: false,
+        shiftKey: false,
+        preventDefault,
+      },
+      store,
+      vi.fn(),
+      vi.fn(),
+      recentre,
+    );
+    expect(recentre).not.toHaveBeenCalled();
+    expect(preventDefault).not.toHaveBeenCalled();
+  },
+);

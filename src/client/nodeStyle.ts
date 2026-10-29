@@ -2,7 +2,9 @@ import type { CSSProperties } from "react";
 import type { NodeStyle } from "../shared/schema.js";
 
 export function defaultNodeBackground(depth: number): string {
-  return `var(--node-bg-depth-${depth % 6})`;
+  return depth === 0
+    ? "var(--node-bg-root)"
+    : `var(--node-bg-depth-${depth % 6})`;
 }
 
 export function nodeAppearance(style?: NodeStyle, depth = 0): CSSProperties {

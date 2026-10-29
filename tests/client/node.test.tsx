@@ -65,3 +65,47 @@ it("confirms valid text on Enter", async () => {
   );
   useEditorStore.setState({ editNodeText: original });
 });
+
+it("distinguishes only the root while preserving custom root colors and palette colors on descendants", () => {
+  const props: any = {
+    id: map.root.id,
+    data: {
+      node: map.root,
+      root: true,
+      depth: 0,
+      side: "right",
+      remove: vi.fn(),
+    },
+    selected: false,
+  };
+  const { container, rerender } = render(<MindMapNode {...props} />);
+  const element = () => container.querySelector<HTMLElement>(".mind-node")!;
+  expect(element()).toHaveClass("root-node");
+  expect(element().style.backgroundColor).toBe("var(--node-bg-root)");
+  const custom = {
+    ...map.root,
+    style: {
+      backgroundColor: "#123456",
+      textColor: "#ffffff",
+      borderColor: "#abcdef",
+    },
+  };
+  rerender(<MindMapNode {...props} data={{ ...props.data, node: custom }} />);
+  expect(element()).toHaveClass("root-node");
+  expect(element()).toHaveStyle({
+    backgroundColor: "#123456",
+    color: "#ffffff",
+    borderColor: "#abcdef",
+  });
+  rerender(<MindMapNode {...props} data={{ ...props.data, node: map.root }} />);
+  expect(element().style.backgroundColor).toBe("var(--node-bg-root)");
+  for (const depth of [1, 6]) {
+    rerender(
+      <MindMapNode {...props} data={{ ...props.data, root: false, depth }} />,
+    );
+    expect(element()).not.toHaveClass("root-node");
+    expect(element().style.backgroundColor).toBe(
+      `var(--node-bg-depth-${depth % 6})`,
+    );
+  }
+});

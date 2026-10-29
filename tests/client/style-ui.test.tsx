@@ -238,3 +238,17 @@ it.each(["solid", "dashed", "dotted"] as const)(
     expect(edge.style.strokeDasharray).toBe("");
   },
 );
+
+it("uses the root accent in the options preview after resetting a custom root background", async () => {
+  const node = { ...fixture().root, style: { backgroundColor: "#abcdef" } };
+  render(<NodeContextMenu node={node} root depth={0} onClose={vi.fn()} />);
+  const preview = screen
+    .getByLabelText("Style preview")
+    .querySelector<HTMLElement>(".mind-node")!;
+  expect(preview).toHaveClass("root-node");
+  expect(preview).toHaveStyle({ backgroundColor: "#abcdef" });
+  await userEvent.click(
+    screen.getByRole("button", { name: "Reset background color" }),
+  );
+  expect(preview.style.backgroundColor).toBe("var(--node-bg-root)");
+});

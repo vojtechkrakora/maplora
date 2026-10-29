@@ -2,7 +2,6 @@ import { expect, it } from "vitest";
 import { nodeAppearance } from "../../src/client/nodeStyle";
 
 it.each([
-  [0, 0],
   [1, 1],
   [3, 3],
   [5, 5],
@@ -41,4 +40,19 @@ it("returns to the current depth's theme color after a background override is re
     nodeAppearance({ backgroundColor: undefined, connectorWidth: 4 }, 3)
       .backgroundColor,
   ).toBe("var(--node-bg-depth-3)");
+});
+
+it("gives only the depth-zero root a dedicated background while deeper palette cycles stay unchanged", () => {
+  expect(nodeAppearance(undefined, 0).backgroundColor).toBe(
+    "var(--node-bg-root)",
+  );
+  expect(nodeAppearance(undefined, 6).backgroundColor).toBe(
+    "var(--node-bg-depth-0)",
+  );
+  expect(
+    nodeAppearance({ backgroundColor: "#abcdef" }, 0).backgroundColor,
+  ).toBe("#abcdef");
+  expect(
+    nodeAppearance({ backgroundColor: undefined }, 0).backgroundColor,
+  ).toBe("var(--node-bg-root)");
 });

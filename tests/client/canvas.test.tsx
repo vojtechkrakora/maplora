@@ -16,6 +16,8 @@ const { flowProps, methods } = vi.hoisted(() => ({
     }),
     setViewport: vi.fn(),
     getZoom: () => 1,
+    getInternalNode: vi.fn(),
+    setCenter: vi.fn(),
     zoomTo: vi.fn(),
     fitView: vi.fn(),
   },
@@ -45,6 +47,8 @@ vi.mock("@xyflow/react", async (importOriginal) => ({
   useViewport: () => ({ x: 0, y: 0, zoom: 1 }),
 }));
 beforeEach(() => {
+  methods.getInternalNode.mockReset();
+  methods.setCenter.mockClear();
   useThemeStore.setState({ theme: "light" });
   const map = fixture();
   useEditorStore.setState({
@@ -59,6 +63,131 @@ beforeEach(() => {
     undoStack: [],
     redoStack: [],
   });
+});
+it.each(["unselected", "editing", "draft", "saving", "error"])(
+  "centres the measured root without zooming or changing map state while %s",
+  (state) => {
+    const map = useEditorStore.getState().map!;
+    useEditorStore.setState({
+      selectedNodeId: state === "unselected" ? null : map.root.id,
+      editingNodeId:
+        state === "editing" || state === "draft" ? map.root.id : null,
+      draft: state === "draft" ? { id: "draft", parentId: map.root.id } : null,
+      saving:
+        state === "saving" ? "saving" : state === "error" ? "error" : "idle",
+      undoStack: [structuredClone(map)],
+    });
+    const original = useEditorStore.getState();
+    methods.getInternalNode.mockReturnValue({
+      internals: { positionAbsolute: { x: -87, y: 44 } },
+      measured: { width: 240, height: 92 },
+    });
+    vi.spyOn(methods, "getZoom").mockReturnValue(0.37);
+    render(
+      <MemoryRouter>
+        <MindMapCanvas />
+      </MemoryRouter>,
+    );
+    const button = screen.getByRole("button", { name: "Re-centre root" });
+    expect(button).toBeEnabled();
+    expect(button).toHaveAttribute("title", "Re-centre root (Home)");
+    expect(fireEvent.pointerDown(button)).toBe(false);
+    fireEvent.click(button);
+    expect(methods.getInternalNode).toHaveBeenCalledWith(map.root.id);
+    expect(methods.setCenter).toHaveBeenCalledExactlyOnceWith(33, 90, {
+      zoom: 0.37,
+      duration: 200,
+      interpolate: "linear",
+    });
+    expect(useEditorStore.getState()).toBe(original);
+  },
+);
+it("uses the layout measurement fallback before React Flow has measured the root", () => {
+  render(
+    <MemoryRouter>
+      <MindMapCanvas />
+    </MemoryRouter>,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Re-centre root" }));
+  expect(methods.setCenter).toHaveBeenCalledExactlyOnceWith(80, 27, {
+    zoom: 1,
+    duration: 200,
+    interpolate: "linear",
+  });
+});
+it("centres the rendered bounds when an editor is larger than the cached label", () => {
+  render(
+    <MemoryRouter>
+      <MindMapCanvas />
+    </MemoryRouter>,
+  );
+  methods.getInternalNode.mockReturnValue({
+    internals: { positionAbsolute: { x: 10, y: -20 } },
+    measured: { width: 160, height: 54 },
+  });
+  vi.spyOn(methods, "getZoom").mockReturnValue(0.5);
+  const element = document.createElement("div");
+  element.className = "react-flow__node";
+  element.dataset.id = fixture().root.id;
+  screen.getByLabelText("Mind map editor").append(element);
+  vi.spyOn(element, "getBoundingClientRect").mockReturnValue(
+    new DOMRect(400, 300, 100, 40),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Re-centre root" }));
+  expect(methods.setCenter).toHaveBeenCalledExactlyOnceWith(110, 20, {
+    zoom: 0.5,
+    duration: 200,
+    interpolate: "linear",
+  });
+});
+it("uses the latest root and dimensions after loading another map", () => {
+  render(
+    <MemoryRouter>
+      <MindMapCanvas />
+    </MemoryRouter>,
+  );
+  const map = fixture();
+  map.id = "another-map";
+  map.root.id = "another-root";
+  act(() => useEditorStore.setState({ map }));
+  methods.getInternalNode.mockReturnValue({
+    internals: { positionAbsolute: { x: 10, y: -10 } },
+    measured: { width: 320, height: 130 },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Re-centre root" }));
+  expect(methods.getInternalNode).toHaveBeenLastCalledWith(map.root.id);
+  expect(methods.setCenter).toHaveBeenCalledExactlyOnceWith(170, 55, {
+    zoom: 1,
+    duration: 200,
+    interpolate: "linear",
+  });
+});
+it("routes Home from canvas and toolbar buttons while dialogs and inputs keep it native", () => {
+  render(
+    <MemoryRouter>
+      <MindMapCanvas />
+    </MemoryRouter>,
+  );
+  const canvas = screen.getByLabelText("Mind map editor");
+  fireEvent.keyDown(canvas, { key: "Home" });
+  const button = screen.getByRole("button", { name: "Re-centre root" });
+  button.focus();
+  fireEvent.keyDown(button, { key: "Home" });
+  expect(methods.setCenter).toHaveBeenCalledTimes(2);
+  const input = document.createElement("input");
+  canvas.append(input);
+  input.focus();
+  expect(fireEvent.keyDown(input, { key: "Home" })).toBe(true);
+  expect(methods.setCenter).toHaveBeenCalledTimes(2);
+  fireEvent.click(screen.getByRole("button", { name: "Keyboard shortcuts" }));
+  expect(screen.getByRole("dialog")).toHaveTextContent("HomeRe-centre root");
+  expect(
+    fireEvent.keyDown(
+      screen.getByRole("button", { name: "Back to thinking" }),
+      { key: "Home" },
+    ),
+  ).toBe(true);
+  expect(methods.setCenter).toHaveBeenCalledTimes(2);
 });
 it("disables empty history controls and routes enabled controls back to the canvas", () => {
   render(
@@ -167,6 +296,16 @@ it("passes logical depths on both sides, through collapse/expand, drafts and bra
   expect(depth(map.root.id)).toBe(0);
   expect(depth("left")).toBe(1);
   chain.forEach((node, index) => expect(depth(node.id)).toBe(index + 1));
+  expect(
+    flowProps.current.nodes
+      .filter((node: any) => node.data.root)
+      .map((node: any) => node.id),
+  ).toEqual([map.root.id]);
+  expect(
+    flowProps.current.nodes.every(
+      (node: any) => node.data.root === (node.data.depth === 0),
+    ),
+  ).toBe(true);
   map = structuredClone(map);
   map.root.children[0].collapsed = true;
   act(() => useEditorStore.setState({ map }));
@@ -232,6 +371,13 @@ function draggableMap() {
   });
   return { first, third, event, reorder, move };
 }
+it("ignores re-centering while a branch is being dragged", () => {
+  const { first, event } = draggableMap();
+  act(() => flowProps.current.onNodeDragStart(event, first));
+  expect(screen.getByRole("button", { name: "Re-centre root" })).toBeDisabled();
+  fireEvent.keyDown(screen.getByLabelText("Mind map editor"), { key: "Home" });
+  expect(methods.setCenter).not.toHaveBeenCalled();
+});
 it("previews a sibling insertion without saving, then commits the drop once", () => {
   const { first, third, event, reorder } = draggableMap();
   act(() => flowProps.current.onNodeDragStart(event, first));
