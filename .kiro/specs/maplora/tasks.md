@@ -4,7 +4,9 @@
 
 This plan breaks Maplora into small, independently testable increments. Tasks are ordered so that each step produces a runnable, verifiable state of the application. The project is a TypeScript monorepo with a Vite-built React SPA served by a Hono API server inside a single Docker container. All data lives on the host filesystem as JSON files.
 
-MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Post-MVP requirements (Req 5, 10–11, 15, 17–20, 25–29) are optional tasks marked with `*`.
+MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Post-MVP requirements (Req 5, 10–11, 15, 17–20, 25–30) are optional tasks marked with `*`.
+
+Current planning status: tasks 1–31 and the previous deployment checkpoint are complete. Requirement 30 (subtree copy/cut/paste) is specified but not implemented; its work is tracked by unchecked task 32 below. Earlier completion/verification notes describe their respective checkpoints.
 
 ---
 
@@ -591,7 +593,53 @@ MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Po
     - Component: after opening map A then map B, the toolbar shows map A as a recent chip; current map B is not shown; clicking map A chip triggers navigation; bar is hidden when no recent maps exist
     - _Requirements: 29.1, 29.3, 29.4, 29.5, 29.9_
 
-- [x] 23. Final checkpoint — all tests pass, Docker build verified
+- [ ] 32. Copy, cut, and paste complete subtrees within and between maps (Post-MVP)
+  - [ ]* 32.1 Define the versioned subtree clipboard payload and pure transfer helpers
+    - Add a client clipboard module for a `text/plain` JSON envelope `{ type: 'maplora/subtree', version: 1, root: MapNode }`, independent of Map File schema version
+    - Encode an independent snapshot of the full persisted subtree, including collapsed descendants, exact labels, ordered children, collapse flags and optional stored styles; omit map metadata
+    - Validate the envelope, recursive shared node schema and uniqueness of source IDs; distinguish unrelated text/Markdown/full-map JSON from invalid or unsupported Maplora subtree payloads
+    - Deep-clone with a fresh UUID v4 for every pasted node, checking destination and newly allocated IDs; each paste creates a separate tree with no shared references
+    - _Requirements: 30.3, 30.4, 30.9, 30.10, 30.12, 30.13_
+
+  - [ ]* 32.2 Implement cut and paste as complete-subtree editor operations
+    - Extend `NodeOperation` and store actions with `cut` (source ID plus expected subtree snapshot) and `paste` (parent ID plus materialized subtree with fresh IDs)
+    - Cut only after successful clipboard capture; reject root cut, remove without the delete confirmation, select the source parent and autosave one operation
+    - Paste as the selected node's last child, expand the destination parent and select the inserted subtree root; preserve descendant collapse/style data and existing child order
+    - Keep source/destination metadata isolated and resolve unset appearance using the new depth and active theme; allow root copy, repeated paste and paste beneath a copied node/descendant
+    - Reuse queue, rollback, failure retry and per-map history: one entry per cut/paste, destination expansion included, no history for copy/rejected actions, stable pasted IDs on retry/redo and no clipboard writes during undo/redo
+    - Reapply once on 409 while preserving unrelated changes; reject a missing destination, inserted-ID collision, or cut subtree that disappeared or differs from its captured snapshot
+    - On cut save failure, retain the clipboard as a copy and explain that removal failed; on paste failure, retain the clipboard and prevent duplicate insertion during retry
+    - _Requirements: 30.5–30.11, 30.14, 30.16–30.18, 25.1–25.6, 22.1–22.8_
+
+  - [ ]* 32.3 Connect native clipboard events and editor feedback
+    - Handle user-initiated `copy`/`cut`/`paste` events on the focused canvas with synchronous event clipboard data; support Ctrl shortcuts and macOS Cmd equivalents without suppressing their clipboard events in keydown
+    - Use the system clipboard across route navigation, tabs and reloads; paste actual clipboard data without a module-memory fallback or asynchronous clipboard-read permission dependency
+    - Guard text selections, editable controls and inherited contenteditable descendants, dialogs, toolbar/options/help controls, inline edits, drafts, dragging, loading, in-flight saves and pending save errors
+    - Preserve native text editing/focus/drafts, require a selected persisted node, reject root cut before writing, and clean up listeners and stale route effects under StrictMode
+    - Report copy/cut clipboard success, normal cut saving/failure status, clipboard access errors and invalid subtree payloads; leave unrelated formats to native handling
+    - Extend shortcut help with paste-as-child placement, full-subtree inclusion, root-cut protection and native text behaviour; preserve the existing Copy as Markdown command
+    - _Requirements: 30.1–30.8, 30.12–30.15, 30.18, 30.19, 16.1, 16.5, 27.1–27.8_
+
+  - [ ]* 32.4 Verify payload and store invariants with unit/property/integration tests
+    - Implement planned design Properties 22–25 with at least 100 generated cases per property
+    - Test full multi-level/collapsed/styled subtree round trips, Unicode and whitespace preservation, invalid envelopes/versions/nodes/duplicate IDs, fresh IDs, repeated paste, source/destination independence and absence of cycles
+    - Test persisted cut/paste as one mutation, last-child placement, destination-parent expansion, unchanged unrelated metadata and source data, original order/collapse restoration on undo, redo ID stability and unchanged clipboard/history on copy
+    - Exercise clipboard-write failure before removal, source/destination save failures, rollback/history reconciliation, retry without duplicates, missing targets, cut-source remote edits/deletion, paste ID collisions, 409 rebasing and late responses after navigation
+    - _Requirements: 30.3–30.18, 25.1–25.8, 22.3, 22.8_
+
+  - [ ]* 32.5 Verify keyboard/event routing and real system clipboard transfers
+    - Component tests: eligible canvas selection, native text selections/inputs/contenteditable descendants, modal/toolbar/options/help guards, edits/drafts/dragging, busy/error states, root handling, malformed/unrelated clipboard data, feedback and listener cleanup
+    - Real browser: use Ctrl/Cmd+C/X/V to transfer complete styled/collapsed branches within a map and between maps, across tabs and page reloads, using the system clipboard on localhost and plain HTTP LAN
+    - Verify copy-root/paste-as-child, repeated paste with distinct IDs, selection/layout/theme defaults, independent per-map undo semantics, native text shortcuts, Copy as Markdown replacing clipboard content, clipboard/save failure recovery and persisted JSON after reload
+    - _Requirements: 30.1–30.19, 16.1, 16.5, 27.1–27.8_
+
+  - [ ]* 32.6 Complete the subtree clipboard implementation checkpoint
+    - Update README editing guidance and shortcut table, plus relevant product/structure steering, with the implemented clipboard format/behaviour and independent per-map history semantics
+    - Run `npm test`, `npm run build`, real-browser verification from 32.5 and `npm run verify:compose`; record actual results and any limitations in implementation notes
+    - Mark task 32 complete only after its requirements and verification pass
+    - _Requirements: 30.1–30.19, 23.1, 23.7, 24.2, 24.3_
+
+- [x] 23. Final checkpoint — all tests pass, Docker build verified (tasks 1–31)
   - Ensure all tests pass, ask the user if questions arise.
 
 ---
@@ -787,7 +835,12 @@ All 372 automated tests passed across 32 files, including 17 new unit/component 
     { "id": 40, "tasks": ["29.2", "30.1"] },
     { "id": 41, "tasks": ["30.2", "31.1"] },
     { "id": 42, "tasks": ["30.3", "31.2"] },
-    { "id": 43, "tasks": ["31.3"] }
+    { "id": 43, "tasks": ["31.3"] },
+    { "id": 44, "tasks": ["32.1"] },
+    { "id": 45, "tasks": ["32.2"] },
+    { "id": 46, "tasks": ["32.3"] },
+    { "id": 47, "tasks": ["32.4", "32.5"] },
+    { "id": 48, "tasks": ["32.6"] }
   ]
 }
 ```

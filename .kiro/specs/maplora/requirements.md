@@ -24,6 +24,7 @@ Maplora is a self-hosted, single-user mind mapping web application. It provides 
 - **API**: The HTTP interface exposed by the Server for map management and persistence operations.
 - **Trash Directory**: A subdirectory named `_trash` within the Data Directory where Map Files are moved when a user deletes a mind map. Files in the Trash Directory are not shown in the main map list.
 - **Revision**: A monotonically increasing integer stored in every Map File and incremented on every successful write, used to detect and reject stale save requests.
+- **Subtree Clipboard**: A versioned, self-contained representation of one node and all of its descendants stored in the system clipboard for copying or cutting branches between maps.
 
 ---
 
@@ -76,6 +77,7 @@ The following requirements are planned enhancements to be implemented after the 
 | 27 | Copy as Markdown | Clipboard export for sharing via chat or email |
 | 28 | Map Tags | Tag assignment, autocomplete, AND-filter in map library |
 | 29 | Recently Opened Maps Bar | Quick switching between maps from within the editor |
+| 30 | Copy, Cut, and Paste Subtrees | System clipboard transfer of complete branches within and between maps |
 
 ---
 
@@ -332,9 +334,11 @@ The following requirements are planned enhancements to be implemented after the 
    - `Ctrl+Shift+Z` or `Ctrl+Y` (Windows/Linux) / `Cmd+Shift+Z` (macOS): redo the most recently undone operation
    - `Home`: re-centre the canvas on the root node (pan only, zoom unchanged)
    - `Ctrl+S` (Windows/Linux) / `Cmd+S` (macOS): save the current map state manually; THE Application SHALL prevent the browser's default "Save page" behaviour and SHALL NOT trigger a file download
+   - `Ctrl+C` / `Ctrl+X` / `Ctrl+V` (Windows/Linux) or `Cmd+C` / `Cmd+X` / `Cmd+V` (macOS): copy / cut / paste a complete subtree as defined in Requirement 30
 2. WHEN the user presses `?` or activates the keyboard shortcut help button in the UI, THE Editor SHALL display a keyboard shortcut reference panel.
 3. WHEN a text input field is focused, THE Editor SHALL NOT trigger node-level shortcuts for `Tab`, `Delete`, `Backspace`, `ArrowUp`, `ArrowDown`, `ArrowLeft`, `ArrowRight`, or `Space`.
 4. THE Editor SHALL intercept `Ctrl+S` (Windows/Linux) and `Cmd+S` (macOS) globally at all times while the Editor is open, preventing the browser default "Save page" action, regardless of which element currently has focus.
+5. THE Editor SHALL preserve native text copy, cut, and paste in editable controls and SHALL NOT apply subtree clipboard shortcuts inside dialogs or other editor controls, as defined in Requirement 30.2.
 
 ---
 
@@ -474,7 +478,7 @@ The following requirements are planned enhancements to be implemented after the 
 
 #### Acceptance Criteria
 
-1. THE Editor SHALL maintain an undo history for the following operations: adding a node, deleting a node or branch, editing node text, moving a branch to a new parent, reordering sibling nodes, and changing a node's visual customization.
+1. THE Editor SHALL maintain an undo history for the following operations: adding a node, deleting a node or branch, editing node text, moving a branch to a new parent, reordering sibling nodes, changing a node's visual customization, cutting a subtree, and pasting a subtree.
 2. WHEN the user triggers the undo action (`Ctrl+Z` on Windows/Linux, `Cmd+Z` on macOS), THE Editor SHALL reverse the most recent undoable operation and update the canvas.
 3. WHEN the user triggers the redo action (`Ctrl+Shift+Z` or `Ctrl+Y` on Windows/Linux, `Cmd+Shift+Z` on macOS), THE Editor SHALL re-apply the most recently undone operation and update the canvas.
 4. THE Editor SHALL maintain a minimum undo history depth of 50 operations per editing session.
@@ -579,3 +583,31 @@ The following requirements are planned enhancements to be implemented after the 
 7. IF a map that appears in the recently opened list has been deleted (moved to trash) since it was last opened, THE Application SHALL omit that map from the recently opened list without displaying an error.
 8. THE recently opened list SHALL be stored in browser session state (e.g. a module-level variable or sessionStorage) and SHALL NOT persist across page reloads or new browser tabs.
 9. IF the recently opened list is empty (no other maps have been opened in this session), THE Application SHALL hide the recently opened bar or display a placeholder indicating no recent maps are available.
+
+---
+
+### Requirement 30: Copy, Cut, and Paste Subtrees
+
+**User Story:** As a user, I want to copy, cut, and paste a node together with its entire subtree, including between different mind maps, so that I can reuse and reorganize branches without recreating their contents.
+
+#### Acceptance Criteria
+
+1. WHEN the editor canvas has focus and a persisted node is selected, THE Editor SHALL support `Ctrl+C`, `Ctrl+X`, and `Ctrl+V` on Windows/Linux and `Cmd+C`, `Cmd+X`, and `Cmd+V` on macOS for subtree copy, cut, and paste respectively. Each action SHALL operate on one selected node; multi-node selection is outside this requirement.
+2. WHEN focus is in an input, textarea, contenteditable element, dialog, toolbar control, node options, or shortcut panel, or WHEN an inline edit, unconfirmed draft, or drag is active, THE Editor SHALL NOT execute subtree clipboard actions or confirm, cancel, or blur unfinished edits. Native text clipboard behaviour SHALL remain available, including copying selected text rather than a branch when a non-empty text selection exists.
+3. WHEN copying or cutting a selected node, THE Editor SHALL capture that node and every descendant, including hidden descendants of collapsed branches, preserving exact labels, child order, each node's collapsed state, and all stored per-node style overrides. The clipboard content SHALL be an independent snapshot, unaffected by later edits to either map.
+4. THE Application SHALL write a versioned Maplora subtree payload to the system clipboard in a text format that preserves the complete subtree. The payload SHALL remain usable after navigating to another map in the same tab and between tabs or page reloads while it remains in the system clipboard. Map title, tags, revision, timestamps, and Map ID SHALL NOT be transferred as destination map metadata.
+5. WHEN a subtree is copied successfully, THE Editor SHALL leave the source map, selection, revision, save queue, and undo/redo history unchanged. THE Editor SHALL allow copying the root node, including its entire tree.
+6. WHEN a non-root subtree is cut, THE Editor SHALL first successfully place its snapshot on the clipboard and then remove the complete subtree from the source map immediately, without waiting for a paste and without the delete-branch confirmation dialog. The removal SHALL autosave through the existing save queue and select the source parent. No descendant SHALL remain in the source tree after a successful cut.
+7. THE Editor SHALL reject cutting the root node without changing either the map or clipboard and SHALL show a brief explanation that the root cannot be cut.
+8. WHEN the user pastes a valid subtree payload with a selected destination node, THE Editor SHALL insert the clipboard subtree as that node's last child, preserving the order of existing children, expand the destination parent if collapsed, and select the inserted subtree root. The subtree's own stored collapse states SHALL remain unchanged.
+9. THE Editor SHALL allow pasting beneath any persisted node, including the map root, in the source map or a different map. Each paste SHALL create fresh UUID v4 values for every inserted node, including after cut, and SHALL NOT reuse any clipboard Node ID or any ID already in the destination tree. Repeated pastes SHALL create independent subtrees with distinct IDs; pasting beneath the copied node or one of its descendants SHALL create a copy without cycles.
+10. THE Editor SHALL preserve copied style overrides while resolving any unset appearance from the pasted node's new depth and the destination's active theme. Copying a map root SHALL NOT transfer its special root appearance to the inserted non-root node unless that appearance is explicitly stored as a style override.
+11. WHEN a subtree is pasted, THE Editor SHALL persist the entire insertion and any destination-parent expansion as one map mutation using the existing safe-write, revision, and automatic-layout paths. Destination Map ID, title, tags, and creation timestamp SHALL remain unchanged; only normal save metadata SHALL advance. Copy/paste SHALL NOT modify the source map, and cut/paste SHALL NOT perform any additional source write during paste.
+12. THE Editor SHALL validate the payload type, payload version, recursive node data, and uniqueness of source node IDs before changing the destination map. Empty clipboard content, ordinary text, Markdown, full-map export JSON, malformed subtree payloads, and unsupported subtree versions SHALL NOT create or modify nodes. Invalid or unsupported Maplora subtree payloads SHALL show an error; unrelated clipboard formats SHALL be left to native browser handling.
+13. IF clipboard data cannot be written or read, THEN THE Editor SHALL leave the maps and undo/redo history unchanged and SHALL show an error when a Maplora clipboard action fails. In particular, a failed clipboard write SHALL never remove the source subtree. THE Editor SHALL use the actual system clipboard content at paste time rather than silently pasting an older cached subtree.
+14. IF saving a cut or paste fails, THEN THE Editor SHALL restore the affected map and history through the existing rollback path and SHALL offer retry through the existing save controls. A failed cut SHALL retain the clipboard snapshot as a usable copy and explain that the source branch was not removed. A failed paste SHALL retain the clipboard content for another paste attempt. Retry SHALL NOT create duplicate inserted nodes.
+15. THE Editor SHALL guard subtree clipboard actions while the map is loading, a save is in progress, or a failed change awaits retry. Clipboard events SHALL use the current loaded map and selection; handlers and late results SHALL NOT mutate a different map after navigation. Missing selections or unavailable destination nodes SHALL NOT cause insertion at an implicit fallback location.
+16. WHEN a stale-revision conflict occurs, THE Editor SHALL reapply the pending cut or paste to the latest map and retry once through the existing save queue. Paste SHALL retain its generated IDs across retry and preserve unrelated remote changes. If the destination parent no longer exists, or the cut source subtree has disappeared or changed since its clipboard snapshot, THE Editor SHALL reject the operation with an error rather than delete uncopied content, recreate removed parents, or overwrite unrelated changes.
+17. EACH successful cut SHALL be one undoable operation in the source map's current editing session, and EACH successful paste SHALL be one undoable operation in the destination map's current editing session, regardless of subtree size. Undo/redo SHALL restore the full affected tree, original sibling order, and affected collapse states and SHALL autosave. Redoing a paste SHALL restore the same inserted IDs. Copy, rejected actions, and clipboard-only changes SHALL NOT create history entries or clear redo.
+18. THE Editor SHALL leave the system clipboard unchanged during undo/redo and SHALL retain its content after a successful paste so that it can be pasted again. A cut followed by a paste between maps SHALL consist of two independently saved operations with per-map history under Requirement 25.6; undoing a paste SHALL NOT restore the source map, and navigating between maps SHALL NOT require retaining their undo histories.
+19. THE Editor SHALL show brief feedback after a successful copy or clipboard capture for cut, distinguish a cut whose removal is still saving or failed, and report paste failures through the normal editor feedback. The keyboard shortcut reference SHALL document subtree shortcuts, whole-subtree behaviour, paste-as-child placement, root-cut protection, and native text editing behaviour.

@@ -172,6 +172,9 @@ interface EditorState {
   toggleCollapse: (nodeId: string) => void;
   moveNode: (nodeId: string, newParentId: string, index: number) => void;
   reorderNode: (nodeId: string, newIndex: number) => void;
+  // Planned Requirement 30: one queued mutation per complete subtree.
+  cutSubtree: (nodeId: string, expectedSubtree: MapNode) => Promise<boolean>;
+  pasteSubtree: (parentId: string, subtree: MapNode) => Promise<boolean>;
   undo: () => void;
   redo: () => void;
 }
@@ -362,6 +365,8 @@ For a single-user app with a 50-op stack and small map files (target: 500 nodes)
 
 **Stack management**: The undo stack is capped at 50 entries (oldest dropped when the cap is reached). The redo stack is cleared whenever a new operation is performed.
 
+**Planned subtree clipboard history (Requirement 30)**: a complete cut is one source-tree snapshot and a complete paste, including destination-parent expansion, is one destination-tree snapshot. Clipboard writes alone never enter history. Undo/redo restores tree contents, order, collapse states and inserted IDs through the existing save queue without reading or rewriting the clipboard. A transfer between maps consists of a saved source cut and a separately saved destination paste; it is not a transaction spanning two map files. History remains scoped to the currently open map session and may reset on navigation. Undoing the destination paste does not restore the source branch. Fresh IDs on every paste prevent collisions if a source cut is subsequently undone in another still-open tab.
+
 ---
 
 ## Canvas / Rendering
@@ -396,7 +401,7 @@ The shortcut uses the existing serialized queue and retry behavior: confirmed ch
 ### Save request lifecycle
 
 ```
-1. User action (add node, edit text, etc.)
+1. User action (add node, edit text, cut subtree, paste subtree, etc.)
 2. editorStore mutates local MapFile in memory
 3. editorStore pushes previous snapshot to undoStack
 4. editorStore calls saveMap()
@@ -433,6 +438,48 @@ The `rename()` call is atomic on POSIX filesystems (Linux, macOS) when source an
 ### Stale-write rejection
 
 The server reads the current Map File, checks `payload.revision < currentFile.revision`, and returns 409 if stale. The client handles a 409 by fetching the latest map from the server and re-applying the user's pending changes on top of the fresh state (last-write-wins merge at the map level). Since Maplora is single-user, a genuine conflict means the user has the editor open in two tabs; the second tab's first save will succeed, the first tab's next save will receive a 409 and reload.
+
+---
+
+## Subtree Clipboard — Planned (Requirement 30)
+
+### Payload and clipboard transport
+
+Use the system clipboard rather than editor-store or module-memory clipboard state so a branch can be transferred after route navigation, a reload, or opening another map in a different tab. The initial transport is a versioned JSON envelope in `text/plain`:
+
+```typescript
+interface SubtreeClipboardPayload {
+  type: 'maplora/subtree';
+  version: 1;
+  root: MapNode;
+}
+```
+
+The clipboard version is independent of Map File `schemaVersion`. The payload includes only the complete node tree with its existing IDs, labels, ordered children, collapsed flags and optional stored styles; it carries no map metadata or reference needed to load the source. Decode using the shared `MapNodeSchema` and an additional whole-subtree uniqueness check. Accept only the recognized type and supported version; reject malformed recognized payloads with feedback. Ordinary text, Markdown and full-map JSON are not subtree imports and do not create nodes. No schema migration, new endpoint, server-side clipboard, or browser-storage cache is required.
+
+Add a client clipboard module with pure encode/decode and deep-clone/remap helpers. Use the existing UUID v4 generator for all inserted nodes, reserving existing destination IDs and all newly allocated IDs. Materialize the fresh-ID subtree once per paste invocation; retain that immutable operation payload for HTTP retry and redo. Every later paste invocation materializes a different subtree. Preserve optional style fields without materializing theme/depth defaults.
+
+Handle native browser `copy`, `cut`, and `paste` events scoped to the active canvas. Read/write the event's clipboard data synchronously, so keyboard shortcuts use the user-initiated browser clipboard path, including plain HTTP LAN deployments. Do not prevent the C/X/V keydown default before the browser can dispatch the clipboard event. A keydown guard may suppress actions during blocked editor states, but must preserve native clipboard shortcuts in editable controls. Do not require asynchronous clipboard read permissions for the keyboard path. Clipboard-data access errors leave trees unchanged and produce feedback; in particular, inability to capture a cut payload must stop before enqueueing removal. Browser clipboard transport must be verified in a real browser on localhost and the supported plain HTTP LAN deployment.
+
+The subtree payload is serialized text when pasted into an external text editor. The existing Copy as Markdown command continues to copy readable whole-map Markdown; using it or any external clipboard action replaces the clipboard content normally. Paste always reads the actual event data and never falls back to a stale local subtree cache.
+
+### Focus, selection, and operation lifecycle
+
+Before handling an event, check the current store and route generation, canvas focus, selected persisted node, active text selection, inline edit, draft, drag, modal and save/error state. Leave inputs, textareas, contenteditable elements (including inherited editable descendants), dialogs, toolbar controls, node options and shortcut panels to their existing/native behaviour. A non-empty native text selection also takes precedence. Without an eligible selection, do not guess a source or destination. Block subtree handling while loading, saving, or awaiting failed-operation retry. Remove event listeners on unmount and ensure exactly one handler processes each event, including under React StrictMode.
+
+- **Copy**: deep-clone the selected persisted subtree, including hidden descendants, serialize it and write the clipboard data before reporting success. Do not call the API, mutate map/selection/history or clear redo. Copying the root is allowed.
+- **Cut**: reject the root before writing anything. Capture and write the same complete subtree payload as copy, then enqueue a `cut` operation containing the source node ID and immutable expected subtree. Remove without the delete confirmation, select its parent and autosave. Surface the normal saving status; do not describe the removal as saved before the response succeeds. Clipboard success must precede any source mutation. If saving fails, roll back map/history, retain the payload as a copy, and explain the failed removal alongside retry controls.
+- **Paste**: decode and validate the actual clipboard text, deep-clone it with fresh IDs and enqueue a `paste` operation with the destination parent ID and materialized subtree. Append it after all current children, expand only the destination parent and select the inserted subtree root. Keep descendant collapse states and custom styles. Default appearance follows the new depth/theme; a copied map root becomes an ordinary child. No file metadata is copied. Clipboard content remains available for repeated pastes.
+
+Each operation uses the existing serialized queue and full-tree history snapshots rather than enqueueing one operation per descendant. Extend the `NodeOperation` union with explicit `cut` and `paste` variants and expose store actions for them. Paste must validate all inserted IDs against the destination, not only the subtree root; do not use the existing add-node duplicate-root shortcut as sufficient validation. No operation may attach a live source-tree reference to a destination tree.
+
+On a 409, reapply the same operation to the refreshed map and retry once. Paste resolves its parent by ID, appends after the latest existing children and uses the already generated subtree IDs; a missing parent or any inserted-ID collision fails visibly without partial insertion. Cut must verify that the source subtree still exactly matches the clipboard snapshot before removal, both initially and on retry, so remote descendant/text/style changes are never silently removed without being copied. Unrelated remote changes remain intact. Both failures use existing rollback/history reconciliation and retry controls; retry must not repeat a successful insertion. Store generation guards must ignore late save results after a route change. Normal saved-map metadata advances through the existing backend.
+
+### Verification
+
+Add pure/property tests for payload round trips, hidden descendants, exact labels/styles/order/collapse states, invalid versions/data/duplicate IDs, deep-copy isolation, unique IDs across repeated pastes and cycle-free insertion under the source or its descendants. Add store/API-mocked integration cases for one history entry per complete cut/paste, persistence, parent expansion, source metadata isolation, rollback/retry, redo ID stability, stale conflicts (including changed cut subtrees), missing targets and navigation during saves.
+
+Component tests cover event routing, Ctrl/Cmd shortcuts, text selections and editable descendants, root copying/cut rejection, dialogs/options/toolbar guards, drafts, loading/saving/error guards, clipboard failures, unchanged Copy as Markdown behaviour and listener cleanup. Real-browser checks must use native keyboard clipboard actions to copy and cut multi-level collapsed/styled branches within one map and between maps, including tabs and reloads; verify repeated paste, native text editing, localhost/plain HTTP transport, file persistence, per-map undo semantics and clipboard contents after source-save or destination-save failures. Synthetic clipboard events alone do not establish system clipboard compatibility.
 
 ---
 
@@ -723,6 +770,38 @@ async function assertDataDir(dataDir: string) {
 
 ---
 
+### Property 22: Subtree clipboard round trip preserves complete branch data (planned)
+
+*For any* valid subtree with unique node IDs, decoding its encoded clipboard payload produces an independent tree with identical IDs, exact labels, child order, collapse states and optional styles, including all hidden descendants. Changing the decoded tree does not change the source.
+
+**Validates: Requirements 30.3, 30.4, 30.12**
+
+---
+
+### Property 23: Paste creates an independent tree with fresh IDs (planned)
+
+*For any* valid destination tree and clipboard subtree, a paste adds exactly the subtree's node count under the selected parent, preserves subtree data except IDs, and leaves existing children in order. All inserted IDs are unique and disjoint from clipboard and existing destination IDs. Repeated pastes are disjoint, source data is unchanged, and copying beneath the source or a descendant cannot introduce a cycle.
+
+**Validates: Requirements 30.8–30.11, 30.18**
+
+---
+
+### Property 24: Cut removes exactly the captured subtree after clipboard capture (planned)
+
+*For any* non-root subtree, a successful cut removes exactly that subtree while leaving every other node and sibling order unchanged. Failed clipboard capture, root cut, or a source subtree changed since capture leaves the source tree unchanged. The clipboard snapshot is independent of the resulting source map.
+
+**Validates: Requirements 30.3, 30.6, 30.7, 30.13, 30.16**
+
+---
+
+### Property 25: Subtree mutation history and rollback preserve complete trees (planned)
+
+*For any* successful cut or paste, one undo restores the complete previous tree and one redo restores the complete result with the same node IDs. Clipboard data remains unchanged throughout. A failed save restores the previous tree and history; copy and rejected actions do not change either history stack. A retried paste inserts at most one subtree for its operation.
+
+**Validates: Requirements 30.5, 30.14, 30.17, 30.18, 25.2, 25.3**
+
+---
+
 ## Error Handling
 
 ### Client-side
@@ -737,6 +816,9 @@ async function assertDataDir(dataDir: string) {
 | PNG export fails | Show toast error, cancel download |
 | Import file invalid JSON | Show error dialog with message |
 | Import unsupported schema version | Show error dialog with detected version |
+| Subtree clipboard write/read or payload validation fails (planned) | Show clipboard error; leave maps and history unchanged |
+| Cut save fails (planned) | Restore source tree/history; keep clipboard snapshot as a copy; explain removal failure and offer retry |
+| Paste save/conflict validation fails (planned) | Restore destination tree/history; retain clipboard; offer retry without duplicate insertion |
 
 ### Server-side
 
@@ -785,6 +867,8 @@ it('serializes and deserializes MapFile with no data loss', () => {
 ```
 
 Properties covered by fast-check tests correspond directly to the Correctness Properties section above: Properties 1–21 excluding 14 (performance), which is covered by a benchmark.
+
+Planned subtree clipboard tests add Properties 22–25 with at least 100 generated cases per property, plus explicit clipboard-event and save-failure integration cases. These properties remain pending until task 32 is implemented.
 
 ### Integration tests
 
