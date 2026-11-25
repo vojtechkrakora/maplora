@@ -4,9 +4,9 @@
 
 This plan breaks Maplora into small, independently testable increments. Tasks are ordered so that each step produces a runnable, verifiable state of the application. The project is a TypeScript monorepo with a Vite-built React SPA served by a Hono API server inside a single Docker container. All data lives on the host filesystem as JSON files.
 
-MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Post-MVP requirements (Req 5, 10–11, 15, 17–20, 25–30) are optional tasks marked with `*`.
+MVP requirements (Req 1–4, 6–9, 12–14, 16, 21–24) are required tasks. Post-MVP requirements (Req 5, 10–11, 15, 17–20, 25–31) are optional tasks marked with `*`.
 
-Current planning status: tasks 1–31 and the previous deployment checkpoint are complete. Requirement 30 (subtree copy/cut/paste) is specified but not implemented; its work is tracked by unchecked task 32 below. Earlier completion/verification notes describe their respective checkpoints.
+Current planning status: tasks 1–33 and the deployment checkpoint are complete. Requirement 31 (optional branch completion) is implemented and verified under task 33. Earlier completion/verification notes describe their respective checkpoints.
 
 ---
 
@@ -639,7 +639,50 @@ Current planning status: tasks 1–31 and the previous deployment checkpoint are
     - Mark task 32 complete only after its requirements and verification pass
     - _Requirements: 30.1–30.19, 23.1, 23.7, 24.2, 24.3_
 
-- [x] 23. Final checkpoint — all tests pass, Docker build verified (tasks 1–32)
+- [x] 33. Optional branch completion from node settings (Post-MVP)
+  - [x]* 33.1 Extend node data and derive inherited completion
+    - Add optional `completed: true` to shared MapNode types and strict validation independently of NodeStyle; clearing removes it and new nodes omit it
+    - Keep Map File schema v1 and subtree clipboard version 1; accept old files/payloads without completion, reject false/non-boolean data, and avoid migration/write-on-read
+    - Derive effective completion and nearest completed ancestor in one traversal, including hidden nodes; retain independent nested explicit flags and support the root
+    - Keep node creation, text/draft workflows, ordinary-map geometry, IDs, order, styles and collapse states unchanged
+    - _Requirements: 31.1, 31.4–31.6, 31.9, 31.15_
+
+  - [x]* 33.2 Implement one queued completion mutation and undo/redo
+    - Add `setNodeCompleted` and a dedicated operation that sets/removes only the target flag; no-op settings produce no write or history change
+    - Reuse automatic saves, one history snapshot, revision handling, rollback/retry and route guards; rebase once on 409 without overwriting unrelated changes and fail if the target was deleted
+    - Preserve explicit flags through history and derive inherited appearance after changes, undo/redo, moves and additions; never write descendant flags or auto-complete parents
+    - _Requirements: 31.3–31.6, 31.9–31.12, 25.1–25.8, 22.1–22.8_
+
+  - [x]* 33.3 Add the settings checkbox and subtle canvas status
+    - Add "Mark branch as done" to existing node options for persisted nodes, including the root; show only explicit state as checked and explain inherited completion with its ancestor
+    - Save immediately without confirmation/Apply, retain panel/focus and unapplied style drafts, keep style reset/cancellation independent, and use normal busy/error/retry guards
+    - Show a small accessible read-only check mark with tooltip only at explicitly completed nodes; no empty canvas checkboxes or additional creation UI
+    - Subtly mute effective labels and internal connectors in both themes while preserving custom styles, readable contrast, focus/selection and active controls; no strikethrough, forced green fill, automatic collapse or hiding
+    - Include mark width in layout/measurements without changing unmarked-map geometry; native checkbox keyboard activation and inherited-state description must be accessible
+    - _Requirements: 31.1–31.3, 31.6–31.11, 31.15_
+
+  - [x]* 33.4 Preserve completion in clipboard, files and exports
+    - Preserve explicit flags through duplication, JSON import/export, trash/restore, clipboard snapshots/remapping and history; do not materialize inherited-only completion when transferring a branch
+    - Extend canonical `sameSubtree` comparison so remote completion changes reject a stale cut; keep fresh paste IDs and backwards compatibility with absent flags
+    - Use shared completion derivation/appearance/measurements in PNG's expanded tree; append ` ✓` only to explicit nodes in Markdown, including the root heading
+    - _Requirements: 31.4, 31.7, 31.8, 31.12–31.15, 30.3, 30.9, 30.16, 27.3_
+
+  - [x]* 33.5 Verify completion invariants, persistence and interaction
+    - Implement planned Properties 26–28 with at least 100 generated cases each; extend existing tree/transfer generators with optional flags
+    - Test old/new schema and payloads, no write on read, root/nested flags, clearing ancestors, inherited explanations, no parent auto-completion, new children and moves in/out of completed branches
+    - Test one-operation undo/redo, no-op history, rollback/retry, deleted targets, one 409 rebase, preservation of unrelated changes, stale-cut completion changes and route isolation
+    - Component tests: settings autosave/focus, retained style drafts, style reset/cancellation independence, native checkbox accessibility, save/error guards, normal creation and editable completed branches
+    - Verify JSON/clipboard/duplication/trash persistence, inherited-state exclusion, exact Markdown markers and PNG parity without live-state mutation
+    - _Requirements: 31.1–31.15, 25.1–25.8, 30.3, 30.16_
+
+  - [x]* 33.6 Complete branch completion verification and documentation
+    - Real browser: ordinary-map appearance/creation, completed root and nested branches, collapsed marks, subtle light/dark/custom-color rendering, focus/keyboard controls, no clipped/overlapping labels and active edit/move/add/collapse behaviour
+    - Verify completion after reload, undo/redo, save failures, cross-map transfers, JSON/Markdown/PNG exports and preservation of explicit flags in persisted files
+    - Update README and relevant steering to describe implemented completion, inheritance and settings behaviour; run `npm test`, `npm run build` and `npm run verify:compose`
+    - Record actual results/limitations and check off task 33 only when implementation and verification pass
+    - _Requirements: 31.1–31.15, 23.1, 24.2, 24.3_
+
+- [x] 23. Final checkpoint — all tests pass, Docker build verified (tasks 1–33)
   - Ensure all tests pass, ask the user if questions arise.
 
 ---
@@ -799,6 +842,14 @@ All 445 automated tests passed across 34 files, including 73 new unit/property/c
 
 Real Chrome on macOS passed actual Cmd+C/X/V transfers through the system clipboard on localhost and an insecure HTTP LAN origin with no asynchronous Clipboard API. Verification used isolated temporary data and covered complete multi-level collapsed/styled Unicode branches; root copy/cut protection; destination expansion and selection; fresh repeated/self/descendant paste; source and metadata isolation; route/tab/reload transfers; native inputs, editable descendants and DOM text selections; depth/theme defaults; Markdown replacement; independent per-map undo/redo; clipboard-write failure before removal; cut/paste save rollback, busy guards and retry without duplicates; persisted JSON after reload; and no browser exceptions. Other browsers/platform clipboard policies remain unverified. Isolated Docker Compose verification passed the image build, static assets/API, bind-mounted JSON, duplication/import, restart/recreation and trash/restoration. All tasks in the current plan are complete.
 
+## Task 33 Implementation Notes
+
+Implemented on 2026-11-24: optional `completed: true` is stored on MapNode separately from styles; clearing removes it. Existing maps and clipboard v1 payloads remain valid without migration or read-time writes. A linear shared traversal derives effective completion and the nearest completed ancestor, including hidden descendants. Nested explicit flags remain independent; root completion is supported. New nodes retain the existing draft workflow and omit the flag.
+
+The node-options checkbox autosaves one queued operation and keeps the panel, focus and pending style drafts. It uses aria-disabled plus event guards while saving to retain keyboard focus. Undo/redo, no-op suppression, rollback/retry, one conflict rebase, missing-target rejection and route-generation isolation reuse the existing persistence path. Explicit nodes show a small accessible read-only check; inherited descendants have subtle theme-aware text/connector muting, with no blank canvas checkboxes. Custom text/background choices retain normal text when muting could reduce contrast; normal selection and controls remain active. Marks are included in live and PNG measurements. Moves, JSON, duplication, trash and clipboard transfers preserve only explicit flags; stale-cut comparisons include completion. Markdown appends ` ✓` only to explicit labels; PNG uses shared derived appearance without mutating the live map.
+
+Verification: 457 automated tests across 35 files, including 12 completion tests, Properties 26–28 at 100 generated cases each, default-palette contrast >= 4.5:1, schema/backwards compatibility, persistence/history/rollback/retry, stale conflicts, independent style drafts, inherited transfer state and PNG/Markdown graph checks. Production build and diff checks passed. Real Chrome on isolated temporary data verified keyboard checkbox activation, focus/style draft retention, nested inheritance, undo/redo, collapsed branches, dark theme, narrow-screen settings, reload persistence, no node overlaps, actual PNG download, save failure rollback/retry, and native Cmd+C/V transfers between maps. No browser exceptions were observed. Docker Compose verification passed build/static assets/API, explicit completion persistence, duplication/import, restart/recreation and trash/restoration. Browser verification used Chrome on macOS; other browser/platform policies were not separately tested.
+
 ## Task Dependency Graph
 
 ```json
@@ -852,7 +903,13 @@ Real Chrome on macOS passed actual Cmd+C/X/V transfers through the system clipbo
     { "id": 45, "tasks": ["32.2"] },
     { "id": 46, "tasks": ["32.3"] },
     { "id": 47, "tasks": ["32.4", "32.5"] },
-    { "id": 48, "tasks": ["32.6"] }
+    { "id": 48, "tasks": ["32.6"] },
+    { "id": 49, "tasks": ["33.1"] },
+    { "id": 50, "tasks": ["33.2"] },
+    { "id": 51, "tasks": ["33.3"] },
+    { "id": 52, "tasks": ["33.4"] },
+    { "id": 53, "tasks": ["33.5"] },
+    { "id": 54, "tasks": ["33.6"] }
   ]
 }
 ```

@@ -18,13 +18,21 @@ import {
   type NodeStyle,
 } from "../shared/schema.js";
 import { allNodes } from "../shared/tree.js";
+import { branchCompletion } from "../shared/completion.js";
+import { CompletionMark } from "./components/CompletionMark";
 import { computeLayout, type Size } from "./layout";
 import { nodeAppearance } from "./nodeStyle";
 import { MindMapEdge } from "./components/MindMapEdge";
 import { downloadUrl, exportFilename } from "./download";
 
 type ExportNode = Node<
-  { node: MapNode; root: boolean; depth: number; left: boolean },
+  {
+    node: MapNode;
+    root: boolean;
+    depth: number;
+    left: boolean;
+    completed?: boolean;
+  },
   "mindmap"
 >;
 
@@ -36,8 +44,9 @@ export function expandedPngMap(map: MapFile): MapFile {
 
 export function pngGraph(map: MapFile, sizes: Map<string, Size>) {
   const positions = computeLayout(map, sizes);
+  const completion = branchCompletion(map.root);
   const nodes: ExportNode[] = [],
-    edges: Edge<{ style?: NodeStyle }>[] = [];
+    edges: Edge<{ style?: NodeStyle; completed?: boolean }>[] = [];
   const stack = [{ node: map.root, depth: 0 }];
   let minX = Infinity,
     minY = Infinity,
@@ -63,7 +72,13 @@ export function pngGraph(map: MapFile, sizes: Map<string, Size>) {
       draggable: false,
       selectable: false,
       focusable: false,
-      data: { node, root: node === map.root, depth, left: position.x < 0 },
+      data: {
+        node,
+        root: node === map.root,
+        depth,
+        left: position.x < 0,
+        completed: completion.get(node.id)?.effective,
+      },
     });
     for (const child of node.children) {
       stack.push({ node: child, depth: depth + 1 });
@@ -79,7 +94,10 @@ export function pngGraph(map: MapFile, sizes: Map<string, Size>) {
               : "right"
             : "out",
         targetHandle: "in",
-        data: { style: node.style },
+        data: {
+          style: node.style,
+          completed: completion.get(node.id)?.effective,
+        },
         selectable: false,
         focusable: false,
       });
@@ -112,7 +130,7 @@ function PngNode({ data }: NodeProps<ExportNode>) {
   return (
     <div
       className={`mind-node ${root ? "root-node" : ""}`}
-      style={nodeAppearance(node.style, depth)}
+      style={nodeAppearance(node.style, depth, data.completed)}
     >
       {root ? (
         <>
@@ -133,7 +151,10 @@ function PngNode({ data }: NodeProps<ExportNode>) {
           />
         </>
       )}
-      <span className="node-label">{node.text}</span>
+      <span className="node-label">
+        {node.text}
+        {node.completed && <CompletionMark />}
+      </span>
     </div>
   );
 }
@@ -207,6 +228,12 @@ export async function downloadMapPng(
       element.className = `mind-node ${node === map.root ? "root-node" : ""}`;
       label.className = "node-label";
       label.textContent = node.text;
+      if (node.completed) {
+        const mark = document.createElement("span");
+        mark.className = "completion-mark";
+        mark.textContent = "✓";
+        label.append(mark);
+      }
       element.append(label);
       measurement.append(element);
       const { width, height } = element.getBoundingClientRect();

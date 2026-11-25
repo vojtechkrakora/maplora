@@ -175,6 +175,8 @@ interface EditorState {
   // Requirement 30: one queued mutation per complete subtree.
   cutSubtree: (nodeId: string, expectedSubtree: MapNode) => Promise<boolean>;
   pasteSubtree: (parentId: string, subtree: MapNode) => Promise<boolean>;
+  // Requirement 31: update only the selected node's explicit flag.
+  setNodeCompleted: (nodeId: string, completed: boolean) => Promise<boolean>;
   undo: () => void;
   redo: () => void;
 }
@@ -270,6 +272,7 @@ interface MapNode {
   text: string;            // 1–200 characters
   collapsed: boolean;
   style?: NodeStyle;       // optional, for post-MVP visual customization
+  completed?: true;        // Req 31: explicit completion; absence is unmarked
   children: MapNode[];
 }
 
@@ -366,6 +369,36 @@ For a single-user app with a 50-op stack and small map files (target: 500 nodes)
 **Stack management**: The undo stack is capped at 50 entries (oldest dropped when the cap is reached). The redo stack is cleared whenever a new operation is performed.
 
 **Subtree clipboard history (Requirement 30)**: a complete cut is one source-tree snapshot and a complete paste, including destination-parent expansion, is one destination-tree snapshot. Clipboard writes alone never enter history. Undo/redo restores tree contents, order, collapse states and inserted IDs through the existing save queue without reading or rewriting the clipboard. A transfer between maps consists of a saved source cut and a separately saved destination paste; it is not a transaction spanning two map files. History remains scoped to the currently open map session and may reset on navigation. Undoing the destination paste does not restore the source branch. Fresh IDs on every paste prevent collisions if a source cut is subsequently undone in another still-open tab.
+
+---
+
+## Optional Branch Completion (Requirement 31)
+
+### Explicit data and inherited state
+
+Extend the shared `MapNode` type and strict recursive Zod schema with optional `completed: true` (`z.literal(true).optional()`). Keep Map File schema v1 and subtree clipboard envelope v1: this is an optional field, and the updated application accepts older data without it. Do not add a default value during parsing or rewrite old files on read. An explicit false value is not a stored state; clearing the setting removes the field. Keep completion separate from `NodeStyle`, theme preferences and collapse state. Older application versions with strict schemas may reject the new field; compatibility here means the updated application reads existing files and payloads.
+
+During a single tree traversal compute `effectiveCompleted = ancestorCompleted || node.completed === true`, plus the nearest explicitly completed ancestor's ID/label for explanatory UI. Derive this state from the current tree on every relevant change; never serialize it. Include hidden nodes in the derivation so collapsed branches and expanded export copies agree. The root may be explicitly completed. Explicit flags on nested nodes remain independent: clearing an ancestor restores ordinary descendants while keeping independently completed branches done. An unchecked descendant under a completed ancestor remains effectively completed and the panel explains why; there is no local override to reopen part of a completed branch. Children do not automatically complete parents.
+
+### Node options and save queue
+
+Add a labelled native checkbox in a separate completion section of the existing `NodeContextMenu`. Its checked state comes from `node.completed`, not effective completion. Show a small contextual explanation of inherited completion and its ancestor when applicable. Toggling the checkbox immediately calls `setNodeCompleted`; it does not submit the style form, close the panel, change focus, apply/discard style drafts or require an Apply action. Style reset/restore defaults and style cancellation never clear an already saved completion setting. Do not add checkboxes to ordinary canvas nodes or change creation, text editing, draft confirmation or keyboard shortcuts.
+
+Add a dedicated `NodeOperation` variant such as `{ kind: 'completion', id: string, completed: boolean }`. Apply it immutably to exactly the identified node, setting `true` or deleting the field. No-op changes do not enqueue a write, clear redo or create a history entry. Each change uses one existing queue item and full-tree snapshot, so undo/redo restores explicit flags and derived appearance without descendant writes. Keep the panel mounted and style draft state intact during completion saves and failures; disable the completion control during loading, an ongoing save or unresolved save error, and use the existing retry action after rollback. Preserve map metadata except normal save revision/timestamp advancement.
+
+On 409, fetch the latest map and reapply only the captured explicit flag change once by node ID, preserving unrelated data. A missing node fails instead of recreating it. The existing generation guard ignores late responses after navigation. Saving failures restore the previous explicit flag, checkbox, appearance and history, with normal error/retry feedback. Setting or clearing completion never invokes branch-delete confirmation.
+
+### Quiet canvas rendering and exports
+
+Render a small read-only check mark adjacent to each explicitly completed node's text, with an accessible name and a "Branch is done" tooltip; the badge is status rather than a second toggle. Inherited-only nodes get no check mark. Apply modest theme-aware muting to effectively completed labels and connectors whose parent is effectively completed (the internal edges of that subtree). Leave the incoming edge from an incomplete parent unchanged. Retain normal background/style identity, legible custom colors, keyboard focus, selection and interactive controls. Avoid applying reduced opacity to the entire node/control subtree. Do not replace user styles with persisted completion colors, strike through text, force green backgrounds, hide content or automatically collapse the branch. Verify normal-size text contrast of at least 4.5:1 for built-in theme combinations; for custom colors where muting would worsen contrast, keep their text unchanged and rely on the check mark/other branch cues.
+
+Use the same completion derivation and appearance rules for the live canvas, hidden measurements and separate PNG renderer. Account for explicit mark width in measured bounds without reserving an empty checkbox slot on unmarked nodes. Existing pan/zoom, bilateral layout and label editing remain active. New children beneath a completed branch inherit muting but are created without a flag. Moving/pasting recomputes inherited state from the destination; ordinary edits do not silently reopen completed work.
+
+Preserve explicit flags through snapshots, duplication, JSON import/export, trash/restore and subtree clipboard cloning/remapping. Extend `sameSubtree` canonical comparison to include completion so a stale cut rejects remote flag changes. Do not copy inherited state when the copied subtree's completed ancestor is outside the payload. Keep clipboard versions unchanged and add backwards compatibility fixtures for absent flags. Copy as Markdown appends ` ✓` only to explicitly completed labels, including a completed root's `# {text} ✓`; indentation, exact label text, ordinary bullets and inherited-only nodes stay as before. PNG includes marks and derived muting, without changing live state. Update the existing transfer tests/properties to include explicit flags.
+
+### Verification
+
+Test old files and clipboard payloads without flags; literal validation and flag removal; no extra creation step; nested explicit flags; completed root; clearing a completed ancestor; inherited-only nodes; adding/editing/moving nodes; and preservation of explicit state in all transfer paths. Test independent style drafts/reset/cancellation, panel focus, native checkbox accessibility, one-operation undo/redo, no-op changes, rollback/retry, a 409 with unrelated changes, deleted targets and navigation during saving. Use Properties 26–28 below for inherited-state and history invariants. Real-browser checks cover ordinary-map geometry, light/dark/custom-color legibility, unobtrusive marks, keyboard controls, collapsed branches, connector rules, no label overlap and PNG parity. Task 33 implements this behaviour; verification results are recorded in the implementation notes.
 
 ---
 
@@ -802,6 +835,30 @@ async function assertDataDir(dataDir: string) {
 
 ---
 
+### Property 26: Effective completion follows explicit ancestor flags
+
+*For any* tree, a node is effectively completed if and only if it or an ancestor has `completed: true`. Setting or clearing one explicit flag never writes flags into other nodes. Clearing an ancestor preserves independently completed descendants; nodes outside that ancestor's branch retain their state.
+
+**Validates: Requirements 31.4–31.6, 31.9**
+
+---
+
+### Property 27: Completion mutations preserve tree structure and history
+
+*For any* valid tree and existing target, changing completion alters only that node's explicit flag (plus normal save metadata). One undo/redo restores the prior/resulting explicit flags and derived completion. A no-op leaves history and revision unchanged; a failed save restores prior tree/history. Labels, IDs, styles, order and collapse states are unchanged.
+
+**Validates: Requirements 31.3, 31.9–31.11**
+
+---
+
+### Property 28: Transfer preserves explicit completion without materializing inheritance
+
+*For any* subtree, serialization round trips and copy/remap preserve exactly its explicit completion flags. Inherited completion from an ancestor outside the subtree is absent from its payload. After moving/pasting, effective completion follows the destination tree; normal clipboard ID remapping is unchanged.
+
+**Validates: Requirements 31.12–31.14, 30.3, 30.9**
+
+---
+
 ## Error Handling
 
 ### Client-side
@@ -869,6 +926,8 @@ it('serializes and deserializes MapFile with no data loss', () => {
 Properties covered by fast-check tests correspond directly to the Correctness Properties section above: Properties 1–21 excluding 14 (performance), which is covered by a benchmark.
 
 Implemented subtree clipboard tests cover Properties 22–25 with 100 generated cases per property, plus explicit clipboard-event, save-failure, conflict, rollback/retry and route-isolation integration cases.
+
+Completion tests cover Properties 26–28 with at least 100 generated cases per property, plus UI, persistence, transfer/export and save-failure tests under task 33. Extend existing tree/clipboard generators to include optional explicit completion flags.
 
 ### Integration tests
 

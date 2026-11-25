@@ -7,19 +7,31 @@ export function defaultNodeBackground(depth: number): string {
     : `var(--node-bg-depth-${depth % 6})`;
 }
 
-export function nodeAppearance(style?: NodeStyle, depth = 0): CSSProperties {
+export function nodeAppearance(
+  style?: NodeStyle,
+  depth = 0,
+  completed = false,
+): CSSProperties {
   return {
     backgroundColor: style?.backgroundColor ?? defaultNodeBackground(depth),
-    color: style?.textColor,
+    color:
+      style?.textColor ??
+      (completed && !style?.backgroundColor
+        ? "var(--completed-text)"
+        : undefined),
     borderColor: style?.borderColor,
   };
 }
 
-export function connectorAppearance(style?: NodeStyle): CSSProperties {
+export function connectorAppearance(
+  style?: NodeStyle,
+  completed = false,
+): CSSProperties {
   const width = style?.connectorWidth ?? 2;
   return {
     stroke: style?.connectorColor ?? "var(--edge)",
     strokeWidth: width,
+    ...(completed ? { opacity: 0.65 } : {}),
     strokeDasharray:
       style?.connectorStyle === "dashed"
         ? `${width * 4} ${width * 2}`

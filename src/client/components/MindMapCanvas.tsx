@@ -37,11 +37,14 @@ import {
   handleSubtreeClipboard,
   type ClipboardFeedback,
 } from "../subtreeEvents";
+import { branchCompletion } from "../../shared/completion.js";
+import { CompletionMark } from "./CompletionMark";
 export { MindMapEdge } from "./MindMapEdge";
 
 type MindNode = Node<
   {
     node: MapNode;
+    completed?: boolean;
     root: boolean;
     depth: number;
     side: "left" | "right";
@@ -89,7 +92,7 @@ export function MindMapNode({ data, selected }: NodeProps<MindNode>) {
   return (
     <div
       className={`mind-node ${root ? "root-node" : ""} ${selected ? "is-selected" : ""}`}
-      style={nodeAppearance(node.style, depth)}
+      style={nodeAppearance(node.style, depth, data.completed)}
       onDoubleClick={() => s.beginEdit(node.id)}
     >
       {root ? (
@@ -139,7 +142,10 @@ export function MindMapNode({ data, selected }: NodeProps<MindNode>) {
           )}
         </div>
       ) : (
-        <span className="node-label">{node.text}</span>
+        <span className="node-label">
+          {node.text}
+          {node.completed && <CompletionMark />}
+        </span>
       )}
       {!root && node.children.length > 0 && (
         <button
@@ -265,7 +271,10 @@ export function MindMapCanvas() {
     return result;
   }, [map]);
   const signature = visible
-    .map((n) => `${n.id}:${n.text}:${n.children.length}:${n.collapsed}`)
+    .map(
+      (n) =>
+        `${n.id}:${n.text}:${n.children.length}:${n.collapsed}:${!!n.completed}`,
+    )
     .join("|");
   useLayoutEffect(() => {
     const next = new Map<string, Size>();
@@ -472,6 +481,7 @@ export function MindMapCanvas() {
     )
       void s.deleteNode(id);
   };
+  const completion = map ? branchCompletion(map.root) : new Map();
   const nodes: MindNode[] = visible.map((node) => ({
     id: node.id,
     type: "mindmap",
@@ -506,6 +516,7 @@ export function MindMapCanvas() {
       node,
       root: node === map!.root,
       depth: depths.get(node.id)!,
+      completed: completion.get(node.id)?.effective,
       side: (positions.get(node.id)?.x ?? 0) < 0 ? "left" : "right",
       remove,
     },
@@ -519,7 +530,10 @@ export function MindMapCanvas() {
         source: parent.id,
         target: n.id,
         type: "mindmap",
-        data: { style: parent.style },
+        data: {
+          style: parent.style,
+          completed: completion.get(parent.id)?.effective,
+        },
         sourceHandle:
           parent === map!.root
             ? (positions.get(n.id)?.x ?? 0) < 0
@@ -606,7 +620,10 @@ export function MindMapCanvas() {
             data-id={n.id}
             key={n.id}
           >
-            <span className="node-label">{n.text}</span>
+            <span className="node-label">
+              {n.text}
+              {n.completed && <CompletionMark />}
+            </span>
             {n !== map.root && n.children.length > 0 && (
               <span className="collapse-toggle">
                 {n.collapsed ? `+${allNodes(n).length - 1}` : "−"}

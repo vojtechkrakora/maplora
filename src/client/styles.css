@@ -1279,3 +1279,24 @@ label {
     transition: none !important;
   }
 }
+
+:root {
+  --completed-text: #435349;
+}
+[data-theme="dark"] {
+  --completed-text: #c0d0c6;
+}
+.completion-mark {
+  display: inline-block;
+  margin-inline-start: 0.45em;
+  font-size: 0.85em;
+  color: inherit;
+}
+.completion-settings {
+  padding: 0 1rem 0.75rem;
+}
+.completion-settings label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}

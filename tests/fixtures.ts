@@ -5,16 +5,21 @@ export const textArb = fc
   .filter((s) => s.trim().length > 0);
 const uuid = () => fc.uuid({ version: 4 });
 const nodeArb: fc.Arbitrary<MapNode> = fc.letrec<{ node: MapNode }>((tie) => ({
-  node: fc.record({
-    id: uuid(),
-    text: textArb,
-    collapsed: fc.boolean(),
-    children: fc.oneof(
-      { depthSize: "small", maxDepth: 4 },
-      fc.constant([] as MapNode[]),
-      fc.array(tie("node"), { maxLength: 4 }),
+  node: fc
+    .record({
+      id: uuid(),
+      text: textArb,
+      collapsed: fc.boolean(),
+      completed: fc.option(fc.constant(true as const), { nil: undefined }),
+      children: fc.oneof(
+        { depthSize: "small", maxDepth: 4 },
+        fc.constant([] as MapNode[]),
+        fc.array(tie("node"), { maxLength: 4 }),
+      ),
+    })
+    .map(({ completed, ...node }) =>
+      completed ? { ...node, completed } : node,
     ),
-  }),
 })).node;
 export const mapArb: fc.Arbitrary<MapFile> = fc.record({
   schemaVersion: fc.constant(1 as const),

@@ -17,6 +17,7 @@ import {
 import { sameSubtree, snapshotSubtree } from "../subtreeClipboard";
 export type NodeOperation =
   | { kind: "add"; parentId: string; node: MapNode; afterId?: string }
+  | { kind: "completion"; id: string; completed: boolean }
   | { kind: "edit"; id: string; text: string }
   | { kind: "delete"; id: string }
   | { kind: "cut"; id: string; expectedSubtree: MapNode }
@@ -104,7 +105,10 @@ export function applyOperation(source: MapFile, op: NodeOperation): MapFile {
   } else {
     const node = findNode(map.root, op.id);
     if (!node) throw new Error("The node no longer exists.");
-    if (op.kind === "edit") {
+    if (op.kind === "completion") {
+      if (op.completed) node.completed = true;
+      else delete node.completed;
+    } else if (op.kind === "edit") {
       NodeTextSchema.parse(op.text);
       node.text = op.text;
     } else if (op.kind === "style") {
@@ -176,6 +180,7 @@ export interface EditorState {
   toggleCollapse(id: string): Promise<boolean>;
   reorderNode(id: string, newIndex: number): Promise<boolean>;
   moveNode(id: string, newParentId: string, index: number): Promise<boolean>;
+  setNodeCompleted(id: string, completed: boolean): Promise<boolean>;
   updateNodeStyle(id: string, style: Partial<NodeStyle>): Promise<boolean>;
   undo(): Promise<boolean>;
   redo(): Promise<boolean>;
@@ -548,6 +553,22 @@ export function createEditorStore(
       },
       dismissMoveError() {
         set({ moveError: null });
+      },
+      async setNodeCompleted(id, completed) {
+        const s = get();
+        if (
+          !s.map ||
+          s.loading ||
+          s.gone ||
+          s.saving !== "idle" ||
+          s.error ||
+          s.draft ||
+          s.editingNodeId
+        )
+          return false;
+        const node = findNode(s.map.root, id);
+        if (!node || !!node.completed === completed) return false;
+        return enqueue({ kind: "completion", id, completed });
       },
       async updateNodeStyle(id, style) {
         const { map, draft, editingNodeId } = get();

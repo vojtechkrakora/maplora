@@ -47,6 +47,7 @@ export interface MapNode {
   text: string;
   collapsed: boolean;
   style?: NodeStyle;
+  completed?: true;
   children: MapNode[];
 }
 export const MapNodeSchema: z.ZodType<MapNode> = z.lazy(() =>
@@ -56,6 +57,7 @@ export const MapNodeSchema: z.ZodType<MapNode> = z.lazy(() =>
       text: NodeTextSchema,
       collapsed: z.boolean(),
       style: NodeStyleSchema.optional(),
+      completed: z.literal(true).optional(),
       children: z.array(MapNodeSchema),
     })
     .strict(),

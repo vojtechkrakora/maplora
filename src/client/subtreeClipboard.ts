@@ -97,6 +97,7 @@ export function sameSubtree(a: MapNode, b: MapNode): boolean {
     id: node.id,
     text: node.text,
     collapsed: node.collapsed,
+    ...(node.completed ? { completed: true } : {}),
     ...(node.style
       ? { style: Object.fromEntries(Object.entries(node.style).sort()) }
       : {}),

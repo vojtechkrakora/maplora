@@ -5,6 +5,7 @@ import {
   defaultNodeBackground,
   nodeAppearance,
 } from "../nodeStyle";
+import { branchCompletion } from "../../shared/completion.js";
 import { useEditorStore } from "../stores/editorStore";
 import { useThemeStore } from "../stores/themeStore";
 
@@ -77,6 +78,10 @@ export function NodeContextMenu({
   onClose(): void;
 }) {
   const updateNodeStyle = useEditorStore((state) => state.updateNodeStyle);
+  const editor = useEditorStore();
+  const inherited =
+    editor.map && branchCompletion(editor.map.root).get(node.id)?.ancestor;
+  const completionHintId = useId();
   const lineStyleId = useId();
   const [patch, setPatch] = useState<Partial<NodeStyle>>({});
   const [busy, setBusy] = useState(false);
@@ -116,6 +121,39 @@ export function NodeContextMenu({
           ×
         </button>
       </header>
+      <section className="completion-settings" aria-label="Branch completion">
+        <label>
+          <input
+            type="checkbox"
+            checked={!!node.completed}
+            // Guard events without native disabling, which would blur this control during autosave.
+            aria-disabled={
+              busy ||
+              editor.loading ||
+              editor.saving !== "idle" ||
+              !!editor.error
+            }
+            aria-describedby={inherited ? completionHintId : undefined}
+            onChange={(event) => {
+              if (
+                busy ||
+                editor.loading ||
+                editor.saving !== "idle" ||
+                editor.error
+              )
+                return;
+              void editor.setNodeCompleted(node.id, event.target.checked);
+            }}
+          />
+          Mark branch as done
+        </label>
+        {inherited && (
+          <p id={completionHintId} className="field-hint">
+            This branch is covered by completed ancestor “{inherited.text}”.
+            Clear that ancestor’s completion to reopen it.
+          </p>
+        )}
+      </section>
       <form
         className="node-style-panel"
         onSubmit={async (event) => {
@@ -241,7 +279,10 @@ export function NodeContextMenu({
           <button type="button" disabled={busy} onClick={onClose}>
             Cancel
           </button>
-          <button className="primary" disabled={busy || !changed}>
+          <button
+            className="primary"
+            disabled={busy || editor.saving === "saving" || !changed}
+          >
             {busy ? "Saving…" : "Apply style"}
           </button>
         </div>

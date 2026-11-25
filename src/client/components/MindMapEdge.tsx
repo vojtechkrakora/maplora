@@ -7,13 +7,15 @@ import {
 import type { NodeStyle } from "../../shared/schema.js";
 import { connectorAppearance } from "../nodeStyle";
 
-export function MindMapEdge(props: EdgeProps<Edge<{ style?: NodeStyle }>>) {
+export function MindMapEdge(
+  props: EdgeProps<Edge<{ style?: NodeStyle; completed?: boolean }>>,
+) {
   const [path] = getBezierPath(props);
   return (
     <BaseEdge
       id={props.id}
       path={path}
-      style={connectorAppearance(props.data?.style)}
+      style={connectorAppearance(props.data?.style, props.data?.completed)}
     />
   );
 }

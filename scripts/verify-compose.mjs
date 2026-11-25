@@ -83,6 +83,7 @@ try {
     {
       id: "12345678-1234-4234-8234-123456789099",
       text: "Survives recreation",
+      completed: true,
       collapsed: false,
       style: {
         backgroundColor: "#ffcc44",
@@ -143,6 +144,7 @@ try {
   assert.equal(copy.title, `${map.title} (Copy)`);
   assert.equal(copy.revision, 1);
   assert.deepEqual(copy.tags, map.tags);
+  assert.equal(copy.root.children[0].children[0].completed, true);
   assert.deepEqual(duplicate.tags, map.tags);
   assert.notEqual(copy.root.id, map.root.id);
   assert.notEqual(copy.root.children[0].id, map.root.children[0].id);
@@ -191,7 +193,7 @@ try {
   await request(`/api/trash/${map.id}/restore`, "POST");
   assert.deepEqual(await request(`/api/maps/${map.id}`), map);
   console.log(
-    "PASS: Compose build, static assets including the PNG export module, theme bootstrap, SPA fallback, API, duplication, JSON import with conflict replacement, sibling order, branch moves, custom styles, map tags, bind-mounted JSON, restart, recreation, trash and restoration.",
+    "PASS: Compose build, static assets including the PNG export module, theme bootstrap, SPA fallback, API, duplication, JSON import with conflict replacement, sibling order, branch moves, custom styles, explicit completion, map tags, bind-mounted JSON, restart, recreation, trash and restoration.",
   );
 } finally {
   await compose("down", "--remove-orphans");
