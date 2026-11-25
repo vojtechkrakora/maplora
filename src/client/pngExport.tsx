@@ -19,6 +19,7 @@ import {
 } from "../shared/schema.js";
 import { allNodes } from "../shared/tree.js";
 import { branchCompletion } from "../shared/completion.js";
+import { CompletionProgress } from "./components/CompletionProgress";
 import { CompletionMark } from "./components/CompletionMark";
 import { computeLayout, type Size } from "./layout";
 import { nodeAppearance } from "./nodeStyle";
@@ -32,6 +33,7 @@ type ExportNode = Node<
     depth: number;
     left: boolean;
     completed?: boolean;
+    percentage?: number;
   },
   "mindmap"
 >;
@@ -78,6 +80,7 @@ export function pngGraph(map: MapFile, sizes: Map<string, Size>) {
         depth,
         left: position.x < 0,
         completed: completion.get(node.id)?.effective,
+        percentage: completion.get(node.id)?.percentage,
       },
     });
     for (const child of node.children) {
@@ -129,7 +132,7 @@ function PngNode({ data }: NodeProps<ExportNode>) {
   const { node, root, depth, left } = data;
   return (
     <div
-      className={`mind-node ${root ? "root-node" : ""} ${data.completed ? "completed-node" : ""}`}
+      className={`mind-node ${root ? "root-node" : ""} ${data.completed ? "completed-node" : ""} ${data.percentage !== undefined ? "has-progress" : ""}`}
       style={nodeAppearance(node.style, depth, data.completed)}
     >
       {root ? (
@@ -153,8 +156,9 @@ function PngNode({ data }: NodeProps<ExportNode>) {
       )}
       <span className="node-label">
         {node.text}
-        {node.completed && <CompletionMark />}
+        {data.completed && <CompletionMark />}
       </span>
+      <CompletionProgress percentage={data.percentage} />
     </div>
   );
 }
@@ -200,6 +204,7 @@ export async function downloadMapPng(
 ): Promise<void> {
   signal.throwIfAborted();
   const map = expandedPngMap(input);
+  const completion = branchCompletion(map.root);
   if (document.fonts) await abortable(document.fonts.ready, signal);
   signal.throwIfAborted();
   const host = document.createElement("div");
@@ -225,10 +230,10 @@ export async function downloadMapPng(
     for (const node of allNodes(map.root)) {
       const element = document.createElement("div"),
         label = document.createElement("span");
-      element.className = `mind-node ${node === map.root ? "root-node" : ""}`;
+      element.className = `mind-node ${node === map.root ? "root-node" : ""} ${completion.get(node.id)?.percentage !== undefined ? "has-progress" : ""}`;
       label.className = "node-label";
       label.textContent = node.text;
-      if (node.completed) {
+      if (completion.get(node.id)?.effective) {
         const mark = document.createElement("span");
         mark.className = "completion-mark";
         mark.textContent = "✓";

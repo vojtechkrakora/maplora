@@ -79,8 +79,9 @@ export function NodeContextMenu({
 }) {
   const updateNodeStyle = useEditorStore((state) => state.updateNodeStyle);
   const editor = useEditorStore();
-  const inherited =
-    editor.map && branchCompletion(editor.map.root).get(node.id)?.ancestor;
+  const completion =
+    editor.map && branchCompletion(editor.map.root).get(node.id);
+  const locked = !!node.children.length && !!completion?.effective;
   const completionHintId = useId();
   const lineStyleId = useId();
   const [patch, setPatch] = useState<Partial<NodeStyle>>({});
@@ -126,19 +127,19 @@ export function NodeContextMenu({
           <input
             type="checkbox"
             aria-label="Mark branch as done"
-            checked={!!(node.completed || inherited)}
+            checked={completion?.effective ?? !!node.completed}
             // Guard events without native disabling, which would blur this control during autosave.
             aria-disabled={
-              !!inherited ||
+              locked ||
               busy ||
               editor.loading ||
               editor.saving !== "idle" ||
               !!editor.error
             }
-            aria-describedby={inherited ? completionHintId : undefined}
+            aria-describedby={locked ? completionHintId : undefined}
             onChange={(event) => {
               if (
-                inherited ||
+                locked ||
                 busy ||
                 editor.loading ||
                 editor.saving !== "idle" ||
@@ -155,10 +156,10 @@ export function NodeContextMenu({
             </span>
           </span>
         </label>
-        {inherited && (
+        {locked && (
           <p id={completionHintId} className="field-hint">
-            Done through ancestor “{inherited.text}”. Clear that ancestor’s
-            completion to reopen it.
+            All descendants are done. Reopen a descendant or add an unfinished
+            child to reopen this branch.
           </p>
         )}
       </section>

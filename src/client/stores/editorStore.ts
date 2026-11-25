@@ -14,6 +14,11 @@ import {
   findNode,
   findParent,
 } from "../../shared/tree.js";
+import {
+  branchCompletion,
+  materializeCompletion,
+  reconcileCompletion,
+} from "../../shared/completion.js";
 import { sameSubtree, snapshotSubtree } from "../subtreeClipboard";
 export type NodeOperation =
   | { kind: "add"; parentId: string; node: MapNode; afterId?: string }
@@ -34,6 +39,15 @@ export type NodeOperation =
     };
 export function applyOperation(source: MapFile, op: NodeOperation): MapFile {
   const map = structuredClone(source);
+  if (op.kind === "completion" && !op.completed) {
+    const target = findNode(source.root, op.id);
+    if (
+      target?.children.length &&
+      branchCompletion(source.root).get(op.id)?.effective
+    )
+      throw new Error("Reopen a descendant or add an unfinished child first.");
+  }
+  materializeCompletion(map.root);
   if (op.kind === "add") {
     const parent = findNode(map.root, op.parentId);
     if (!parent) throw new Error("The parent node no longer exists.");
@@ -51,7 +65,7 @@ export function applyOperation(source: MapFile, op: NodeOperation): MapFile {
     const parent = findParent(map.root, op.id);
     if (!node || !parent)
       throw new Error("The captured branch no longer exists.");
-    if (!sameSubtree(node, op.expectedSubtree))
+    if (!sameSubtree(findNode(source.root, op.id)!, op.expectedSubtree))
       throw new Error(
         "The branch changed after capture; its newer content was kept.",
       );
@@ -60,6 +74,7 @@ export function applyOperation(source: MapFile, op: NodeOperation): MapFile {
     const parent = findNode(map.root, op.parentId);
     if (!parent) throw new Error("The paste destination no longer exists.");
     const subtree = snapshotSubtree(op.subtree);
+    materializeCompletion(subtree);
     const ids = new Set(
       allNodes(map.root).map((node) => node.id.toLowerCase()),
     );
@@ -106,8 +121,9 @@ export function applyOperation(source: MapFile, op: NodeOperation): MapFile {
     const node = findNode(map.root, op.id);
     if (!node) throw new Error("The node no longer exists.");
     if (op.kind === "completion") {
-      if (op.completed) node.completed = true;
-      else delete node.completed;
+      if (op.completed) {
+        for (const descendant of allNodes(node)) descendant.completed = true;
+      } else delete node.completed;
     } else if (op.kind === "edit") {
       NodeTextSchema.parse(op.text);
       node.text = op.text;
@@ -121,6 +137,7 @@ export function applyOperation(source: MapFile, op: NodeOperation): MapFile {
     } else if (node !== map.root && node.children.length)
       node.collapsed = op.collapsed;
   }
+  reconcileCompletion(map.root);
   return map;
 }
 interface Draft {
@@ -567,7 +584,10 @@ export function createEditorStore(
         )
           return false;
         const node = findNode(s.map.root, id);
-        if (!node || !!node.completed === completed) return false;
+        if (!node) return false;
+        const effective = branchCompletion(s.map.root).get(id)!.effective;
+        if (effective === completed || (!completed && node.children.length))
+          return false;
         return enqueue({ kind: "completion", id, completed });
       },
       async updateNodeStyle(id, style) {

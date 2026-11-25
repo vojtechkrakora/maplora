@@ -38,6 +38,7 @@ import {
   type ClipboardFeedback,
 } from "../subtreeEvents";
 import { branchCompletion } from "../../shared/completion.js";
+import { CompletionProgress } from "./CompletionProgress";
 import { CompletionMark } from "./CompletionMark";
 export { MindMapEdge } from "./MindMapEdge";
 
@@ -45,6 +46,7 @@ type MindNode = Node<
   {
     node: MapNode;
     completed?: boolean;
+    percentage?: number;
     root: boolean;
     depth: number;
     side: "left" | "right";
@@ -91,7 +93,7 @@ export function MindMapNode({ data, selected }: NodeProps<MindNode>) {
   };
   return (
     <div
-      className={`mind-node ${root ? "root-node" : ""} ${data.completed ? "completed-node" : ""} ${selected ? "is-selected" : ""}`}
+      className={`mind-node ${root ? "root-node" : ""} ${data.completed ? "completed-node" : ""} ${data.percentage !== undefined ? "has-progress" : ""} ${selected ? "is-selected" : ""}`}
       style={nodeAppearance(node.style, depth, data.completed)}
       onDoubleClick={() => s.beginEdit(node.id)}
     >
@@ -144,9 +146,10 @@ export function MindMapNode({ data, selected }: NodeProps<MindNode>) {
       ) : (
         <span className="node-label">
           {node.text}
-          {node.completed && <CompletionMark />}
+          {data.completed && <CompletionMark />}
         </span>
       )}
+      <CompletionProgress percentage={data.percentage} />
       {!root && node.children.length > 0 && (
         <button
           className="collapse-toggle nodrag"
@@ -258,6 +261,10 @@ export function MindMapCanvas() {
     )
       setStyleTarget(null);
   }, [styleTarget, s.map?.id, s.selectedNodeId, s.editingNodeId, s.draft]);
+  const completion = useMemo(
+    () => (map ? branchCompletion(map.root) : new Map()),
+    [map],
+  );
   const visible = useMemo(() => (map ? allNodes(map.root, true) : []), [map]);
   const depths = useMemo(() => {
     const result = new Map<string, number>();
@@ -273,7 +280,7 @@ export function MindMapCanvas() {
   const signature = visible
     .map(
       (n) =>
-        `${n.id}:${n.text}:${n.children.length}:${n.collapsed}:${!!n.completed}`,
+        `${n.id}:${n.text}:${n.children.length}:${n.collapsed}:${completion.get(n.id)?.effective}:${completion.get(n.id)?.percentage}`,
     )
     .join("|");
   useLayoutEffect(() => {
@@ -481,7 +488,6 @@ export function MindMapCanvas() {
     )
       void s.deleteNode(id);
   };
-  const completion = map ? branchCompletion(map.root) : new Map();
   const nodes: MindNode[] = visible.map((node) => ({
     id: node.id,
     type: "mindmap",
@@ -517,6 +523,7 @@ export function MindMapCanvas() {
       root: node === map!.root,
       depth: depths.get(node.id)!,
       completed: completion.get(node.id)?.effective,
+      percentage: completion.get(node.id)?.percentage,
       side: (positions.get(node.id)?.x ?? 0) < 0 ? "left" : "right",
       remove,
     },
@@ -616,14 +623,15 @@ export function MindMapCanvas() {
       <div className="measurement" ref={measurement} aria-hidden="true">
         {visible.map((n) => (
           <div
-            className={`mind-node ${n === map.root ? "root-node" : ""}`}
+            className={`mind-node ${n === map.root ? "root-node" : ""} ${completion.get(n.id)?.percentage !== undefined ? "has-progress" : ""}`}
             data-id={n.id}
             key={n.id}
           >
             <span className="node-label">
               {n.text}
-              {n.completed && <CompletionMark />}
+              {completion.get(n.id)?.effective && <CompletionMark />}
             </span>
+            <CompletionProgress percentage={completion.get(n.id)?.percentage} />
             {n !== map.root && n.children.length > 0 && (
               <span className="collapse-toggle">
                 {n.collapsed ? `+${allNodes(n).length - 1}` : "−"}

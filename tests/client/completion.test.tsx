@@ -68,13 +68,24 @@ it("derives completion without changing flags, including independently completed
       expect(
         [...branchCompletion(complete.root).values()].every((s) => s.effective),
       ).toBe(true);
-      expect(complete.root.children).toEqual(map.root.children);
-      const clear = applyOperation(complete, {
-        kind: "completion",
-        id: map.root.id,
-        completed: false,
-      });
-      expect(clear.root.children).toEqual(map.root.children);
+      expect(map).toEqual(before);
+      if (complete.root.children.length) {
+        expect(() =>
+          applyOperation(complete, {
+            kind: "completion",
+            id: map.root.id,
+            completed: false,
+          }),
+        ).toThrow("Reopen a descendant");
+      } else {
+        expect(
+          applyOperation(complete, {
+            kind: "completion",
+            id: map.root.id,
+            completed: false,
+          }).root.completed,
+        ).toBeUndefined();
+      }
     }),
     { numRuns: 100 },
   );
@@ -85,15 +96,18 @@ it("persists completion with one undo/redo and no writes for unchanged settings"
     fc.asyncProperty(mapArb, async (map) => {
       const { store, service } = setup(map);
       await store.getState().loadMap(map.id);
-      const value = !map.root.completed;
-      await store.getState().setNodeCompleted(map.root.id, value);
+      const leaf = allNodes(map.root).find((n) => !n.children.length)!;
+      const value = !branchCompletion(map.root).get(leaf.id)!.effective;
+      await store.getState().setNodeCompleted(leaf.id, value);
       const result = structuredClone(store.getState().map!.root);
-      const expected = structuredClone(map.root);
-      if (value) expected.completed = true;
-      else delete expected.completed;
-      expect(result).toEqual(expected);
+      expect(!!findNode(result, leaf.id)!.completed).toBe(value);
+      const structure = (root: typeof map.root) =>
+        JSON.stringify(root, (key, value) =>
+          key === "completed" ? undefined : value,
+        );
+      expect(structure(result)).toBe(structure(map.root));
       expect(store.getState().undoStack).toHaveLength(1);
-      expect(await store.getState().setNodeCompleted(map.root.id, value)).toBe(
+      expect(await store.getState().setNodeCompleted(leaf.id, value)).toBe(
         false,
       );
       expect(service.saveMap).toHaveBeenCalledTimes(1);
@@ -169,7 +183,7 @@ it("excludes inherited completion when copying a child and protects stale cuts",
   const map = nested();
   map.root.completed = true;
   const child = map.root.children[0];
-  expect(branchCompletion(map.root).get(child.id)?.ancestor).toBe(map.root);
+  expect(branchCompletion(map.root).get(child.id)?.effective).toBe(true);
   const copied = remapSubtree(child, fixture().root);
   expect(branchCompletion(copied).get(copied.id)?.effective).toBe(false);
   const changed = structuredClone(child);
@@ -182,7 +196,7 @@ it("excludes inherited completion when copying a child and protects stale cuts",
     ),
   ).toThrow("changed after capture");
 });
-it("renders PNG effective state and Markdown marks only at explicit nodes", () => {
+it("renders effective completion consistently in PNG and Markdown", () => {
   const map = nested();
   map.root.completed = true;
   map.root.children[1].completed = true;
@@ -193,7 +207,7 @@ it("renders PNG effective state and Markdown marks only at explicit nodes", () =
   expect(graph.nodes.every((n) => n.data.completed)).toBe(true);
   expect(graph.edges.every((e) => e.data?.completed)).toBe(true);
   expect(mapToMarkdown(map)).toBe(
-    "# Garden of ideas ✓\n- Branch 1\n- Branch 2 ✓",
+    "# Garden of ideas ✓\n- Branch 1 ✓\n- Branch 2 ✓",
   );
 });
 it("autosaves the checkbox while retaining focus, panel and unapplied styles", async () => {
@@ -267,12 +281,14 @@ it("keeps new children unmarked and recomputes completion when branches move", a
   );
   expect(
     branchCompletion(store.getState().map!.root).get(child)?.effective,
-  ).toBe(true);
+  ).toBe(false);
   await store.getState().moveNode(child, map.root.id, 2);
   expect(
     branchCompletion(store.getState().map!.root).get(child)?.effective,
   ).toBe(false);
-  expect(findNode(store.getState().map!.root, parent)?.completed).toBe(true);
+  expect(
+    findNode(store.getState().map!.root, parent)?.completed,
+  ).toBeUndefined();
 });
 it("blocks duplicate changes while saving and ignores late results after map navigation", async () => {
   const { store, service } = setup();
@@ -319,7 +335,7 @@ it("keeps completed default text legible against every theme node background", (
     ).toBeGreaterThanOrEqual(4.5);
   }
 });
-it("shows inherited branches as checked without overwriting their explicit flags", () => {
+it("allows a leaf covered by a legacy completed ancestor to be reopened", () => {
   const map = nested();
   map.root.completed = true;
   const original = useEditorStore.getState();
@@ -344,10 +360,9 @@ it("shows inherited branches as checked without overwriting their explicit flags
       name: "Mark branch as done",
     });
     expect(checkbox).toBeChecked();
-    expect(checkbox).toHaveAttribute("aria-disabled", "true");
-    expect(checkbox).toHaveAccessibleDescription(/Garden of ideas/);
+    expect(checkbox).toHaveAttribute("aria-disabled", "false");
     fireEvent.click(checkbox);
-    expect(save).not.toHaveBeenCalled();
+    expect(save).toHaveBeenCalledWith(map.root.children[0].id, false);
     expect(map.root.children[0]).not.toHaveProperty("completed");
   } finally {
     view.unmount();

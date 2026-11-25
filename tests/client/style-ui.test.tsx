@@ -272,7 +272,7 @@ it("shows inherited completion on custom-colored descendants and restores their 
   expect(element.style.backgroundColor).toBe("var(--completed-bg)");
   expect(element.style.color).toBe("var(--completed-text)");
   expect(element.style.borderColor).toBe("var(--completed-border)");
-  expect(container.querySelector(".completion-mark")).toBeNull();
+  expect(container.querySelector(".completion-mark")).toBeInTheDocument();
   rerender(
     <MindMapNode {...props} data={{ ...props.data, completed: false }} />,
   );

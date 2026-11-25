@@ -1,4 +1,5 @@
 import fc from "fast-check";
+import { materializeCompletion } from "../src/shared/completion.js";
 import type { MapFile, MapNode } from "../src/shared/schema.js";
 export const textArb = fc
   .string({ minLength: 1, maxLength: 100 })
@@ -21,19 +22,25 @@ const nodeArb: fc.Arbitrary<MapNode> = fc.letrec<{ node: MapNode }>((tie) => ({
       completed ? { ...node, completed } : node,
     ),
 })).node;
-export const mapArb: fc.Arbitrary<MapFile> = fc.record({
-  schemaVersion: fc.constant(1 as const),
-  revision: fc.integer({ min: 1, max: 100 }),
-  id: uuid(),
-  title: textArb,
-  tags: fc.array(
-    textArb.filter((text) => text.length <= 32 && !text.includes(",")),
-    { maxLength: 5 },
-  ),
-  createdAt: fc.constant("2026-01-01T00:00:00.000Z"),
-  updatedAt: fc.constant("2026-01-02T00:00:00.000Z"),
-  root: nodeArb,
-});
+export const mapArb: fc.Arbitrary<MapFile> = fc
+  .record({
+    schemaVersion: fc.constant(1 as const),
+    revision: fc.integer({ min: 1, max: 100 }),
+    id: uuid(),
+    title: textArb,
+    tags: fc.array(
+      textArb.filter((text) => text.length <= 32 && !text.includes(",")),
+      { maxLength: 5 },
+    ),
+    createdAt: fc.constant("2026-01-01T00:00:00.000Z"),
+    updatedAt: fc.constant("2026-01-02T00:00:00.000Z"),
+    root: nodeArb,
+  })
+  .map((map) => {
+    // Current editor states have materialized flags; legacy shapes have dedicated tests.
+    materializeCompletion(map.root);
+    return map;
+  });
 export function fixture(): MapFile {
   return {
     schemaVersion: 1,

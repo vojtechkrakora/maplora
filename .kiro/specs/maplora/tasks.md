@@ -688,7 +688,16 @@ Current planning status: tasks 1–33 and the deployment checkpoint are complete
     - Reuse the appearance in PNG; verify parent/child/grandchild and custom-color inheritance, clearing, themes, focus, keyboard operation and visual consistency in a real browser
     - _Requirements: 31.2, 31.6, 31.8, 31.14, 31.15_
 
-- [x] 23. Final checkpoint — all tests pass, Docker build verified (tasks 1–33)
+- [x] 34. Automatic parent completion and descendant percentages (Post-MVP)
+  - [x] 34.1 Derive effective completion, descendant totals and rounded progress with two linear passes; include collapsed/internal descendants and preserve legacy flags without writes on read
+  - [x] 34.2 Normalize an owned clone before operations and reconcile stale ancestor flags; complete whole subtrees, reopen only leaves, preserve siblings, and recompute after creation/move/cut/paste/undo/rebase in one save/history entry
+  - [x] 34.3 Lock completed internal controls with an explanation; allow leaf toggles; show shared bottom-right percentage in live/measurement/PNG nodes, hide rounded 100%, and mark automatic parents in canvas/Markdown
+  - [x] 34.4 Update Requirement 31, design, README and steering; adapt existing tests and add Properties 29–30 plus progress/legacy/rounding/history coverage
+  - [x] 34.5 Verify the full suite, production build, native browser workflows and safe local Docker deployment; record results and preserve existing user data
+  - This task supersedes task 33's original ancestor-only inheritance, direct parent reopening and no-progress rules. Task 33 remains a historical implementation record.
+  - _Requirements: 31.1–31.19_
+
+- [x] 23. Final checkpoint — all tests pass, Docker build verified (tasks 1–34)
   - Ensure all tests pass, ask the user if questions arise.
 
 ---
@@ -862,6 +871,16 @@ User feedback replaces the initial subtle presentation with grey backgrounds and
 
 Verification: 459 tests across 35 files passed, including inherited checked state, custom-color override/restoration and neutral-palette contrast. Production build passed. Real Chrome verified a four-node custom-colored subtree with grandchildren, grey/strikethrough rendering on every descendant, unaffected siblings, original-color restoration, inherited settings, dark theme, reload persistence, PNG download and narrow-screen switch size. Screenshot was visually inspected for alignment with the existing node options panel. Existing explicit flags, persistence and one-operation undo semantics are unchanged.
 
+## Task 34 Implementation Notes
+
+Implemented on 2026-11-25: parents complete automatically when all descendants are done, including the root. A completed internal node cannot be directly unchecked; reopening a leaf or introducing unfinished work reopens its ancestors while preserving completed siblings. Completing an unfinished branch still completes its entire subtree. Node creation is unchanged. Legacy ancestor-only flags retain their meaning on read; each confirmed operation materializes existing effective flags on its owned clone and reconciles stale internal flags in the same save/history entry. Cut validation compares the original source before normalization. No schema/API/dependency change or write on read is introduced.
+
+Shared two-pass derivation counts all strict descendants, including hidden/internal nodes. A small accessible bottom-right percentage shows rounded completed progress whenever at least one descendant is done; rounded 100% is hidden and a positive fraction rounded to 0% is shown. Actual counts determine completion. Live nodes, measurements and PNG share marks/footer/spacing; Markdown marks all effective completion, including automatic parents. Ordinary-map geometry and independent style drafts remain unchanged.
+
+Verification: all 468 tests across 36 files passed, including nine new progress/rollup cases and Properties 29–30 at 100 generated cases each. Coverage includes legacy reopening, completed siblings, new children, collapsed/internal counts, rounding boundaries, blocked/no-op saves, move/cut/paste reconciliation, exact undo, failure rollback and one conflict/retry against remote work. Production build, source formatting and diff checks passed. Real Chrome on isolated data verified automatic parent/root completion, locked internal controls without writes, editable leaves, footer position without strikethrough, creation, undo/redo, collapse, both themes, actual PNG output and reload persistence, with no browser exceptions. Other browser engines were not separately tested.
+
+Isolated Docker Compose verification passed image/static assets/API, persistence, duplication/import, restart/recreation and trash/restoration. The local service was then safely replaced with the verified image after a consistent backup. Health and served progress UI passed; all 17 original JSON files were byte-for-byte unchanged and the existing library retained all 10 maps.
+
 ## Task Dependency Graph
 
 ```json
@@ -922,7 +941,12 @@ Verification: 459 tests across 35 files passed, including inherited checked stat
     { "id": 52, "tasks": ["33.4"] },
     { "id": 53, "tasks": ["33.5"] },
     { "id": 54, "tasks": ["33.6"] },
-    { "id": 55, "tasks": ["33.7"] }
+    { "id": 55, "tasks": ["33.7"] },
+    { "id": 56, "tasks": ["34.1"] },
+    { "id": 57, "tasks": ["34.2"] },
+    { "id": 58, "tasks": ["34.3"] },
+    { "id": 59, "tasks": ["34.4"] },
+    { "id": 60, "tasks": ["34.5"] }
   ]
 }
 ```
