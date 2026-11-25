@@ -252,3 +252,37 @@ it("uses the root accent in the options preview after resetting a custom root ba
   );
   expect(preview.style.backgroundColor).toBe("var(--node-bg-root)");
 });
+it("shows inherited completion on custom-colored descendants and restores their colors on reopening", () => {
+  const node = {
+    ...fixture().root,
+    style: {
+      backgroundColor: "#ff0066",
+      textColor: "white",
+      borderColor: "#ff0000",
+    },
+  };
+  const props: any = {
+    id: node.id,
+    data: { node, root: false, side: "left", depth: 2, completed: true },
+    selected: false,
+  };
+  const { container, rerender } = render(<MindMapNode {...props} />);
+  expect(container.querySelector(".mind-node")).toHaveClass("completed-node");
+  const element = container.querySelector<HTMLElement>(".mind-node")!;
+  expect(element.style.backgroundColor).toBe("var(--completed-bg)");
+  expect(element.style.color).toBe("var(--completed-text)");
+  expect(element.style.borderColor).toBe("var(--completed-border)");
+  expect(container.querySelector(".completion-mark")).toBeNull();
+  rerender(
+    <MindMapNode {...props} data={{ ...props.data, completed: false }} />,
+  );
+  expect(container.querySelector(".mind-node")).not.toHaveClass(
+    "completed-node",
+  );
+  expect(container.querySelector(".mind-node")).toHaveStyle({
+    backgroundColor: "#ff0066",
+    color: "rgb(255, 255, 255)",
+    borderColor: "#ff0000",
+  });
+  expect(node.style.backgroundColor).toBe("#ff0066");
+});

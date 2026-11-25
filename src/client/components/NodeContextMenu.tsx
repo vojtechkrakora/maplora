@@ -125,9 +125,11 @@ export function NodeContextMenu({
         <label>
           <input
             type="checkbox"
-            checked={!!node.completed}
+            aria-label="Mark branch as done"
+            checked={!!(node.completed || inherited)}
             // Guard events without native disabling, which would blur this control during autosave.
             aria-disabled={
+              !!inherited ||
               busy ||
               editor.loading ||
               editor.saving !== "idle" ||
@@ -136,6 +138,7 @@ export function NodeContextMenu({
             aria-describedby={inherited ? completionHintId : undefined}
             onChange={(event) => {
               if (
+                inherited ||
                 busy ||
                 editor.loading ||
                 editor.saving !== "idle" ||
@@ -145,12 +148,17 @@ export function NodeContextMenu({
               void editor.setNodeCompleted(node.id, event.target.checked);
             }}
           />
-          Mark branch as done
+          <span className="completion-copy">
+            <span>Mark branch as done</span>
+            <span className="completion-description">
+              Includes every node in this branch
+            </span>
+          </span>
         </label>
         {inherited && (
           <p id={completionHintId} className="field-hint">
-            This branch is covered by completed ancestor “{inherited.text}”.
-            Clear that ancestor’s completion to reopen it.
+            Done through ancestor “{inherited.text}”. Clear that ancestor’s
+            completion to reopen it.
           </p>
         )}
       </section>

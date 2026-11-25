@@ -657,7 +657,7 @@ Current planning status: tasks 1–33 and the deployment checkpoint are complete
     - Add "Mark branch as done" to existing node options for persisted nodes, including the root; show only explicit state as checked and explain inherited completion with its ancestor
     - Save immediately without confirmation/Apply, retain panel/focus and unapplied style drafts, keep style reset/cancellation independent, and use normal busy/error/retry guards
     - Show a small accessible read-only check mark with tooltip only at explicitly completed nodes; no empty canvas checkboxes or additional creation UI
-    - Subtly mute effective labels and internal connectors in both themes while preserving custom styles, readable contrast, focus/selection and active controls; no strikethrough, forced green fill, automatic collapse or hiding
+    - Show all effective descendants with grey backgrounds/borders and strikethrough labels, including custom-colored nodes; retain stored styles for reopening, readable contrast, focus/selection and active controls; no automatic collapse or hiding
     - Include mark width in layout/measurements without changing unmarked-map geometry; native checkbox keyboard activation and inherited-state description must be accessible
     - _Requirements: 31.1–31.3, 31.6–31.11, 31.15_
 
@@ -681,6 +681,12 @@ Current planning status: tasks 1–33 and the deployment checkpoint are complete
     - Update README and relevant steering to describe implemented completion, inheritance and settings behaviour; run `npm test`, `npm run build` and `npm run verify:compose`
     - Record actual results/limitations and check off task 33 only when implementation and verification pass
     - _Requirements: 31.1–31.15, 23.1, 24.2, 24.3_
+
+  - [x]* 33.7 Correct completion presentation after user feedback
+    - Replace the unstyled checkbox with a compact themed switch aligned with node options; inherited completion is checked/read-only with its ancestor explained
+    - Show grey backgrounds, neutral borders/text and strikethrough labels on every effective descendant, overriding custom colors only during rendering and restoring them on reopening
+    - Reuse the appearance in PNG; verify parent/child/grandchild and custom-color inheritance, clearing, themes, focus, keyboard operation and visual consistency in a real browser
+    - _Requirements: 31.2, 31.6, 31.8, 31.14, 31.15_
 
 - [x] 23. Final checkpoint — all tests pass, Docker build verified (tasks 1–33)
   - Ensure all tests pass, ask the user if questions arise.
@@ -850,6 +856,12 @@ The node-options checkbox autosaves one queued operation and keeps the panel, fo
 
 Verification: 457 automated tests across 35 files, including 12 completion tests, Properties 26–28 at 100 generated cases each, default-palette contrast >= 4.5:1, schema/backwards compatibility, persistence/history/rollback/retry, stale conflicts, independent style drafts, inherited transfer state and PNG/Markdown graph checks. Production build and diff checks passed. Real Chrome on isolated temporary data verified keyboard checkbox activation, focus/style draft retention, nested inheritance, undo/redo, collapsed branches, dark theme, narrow-screen settings, reload persistence, no node overlaps, actual PNG download, save failure rollback/retry, and native Cmd+C/V transfers between maps. No browser exceptions were observed. Docker Compose verification passed build/static assets/API, explicit completion persistence, duplication/import, restart/recreation and trash/restoration. Browser verification used Chrome on macOS; other browser/platform policies were not separately tested.
 
+### Task 33.7 Presentation correction — 2026-11-25
+
+User feedback replaces the initial subtle presentation with grey backgrounds and strikethrough labels throughout the effectively completed subtree. Custom node colors are overridden only for rendering and restored on reopening. All descendant depths use the same live/PNG appearance; inherited completion is shown as checked/read-only in settings. The settings checkbox now uses a compact themed 32×18 switch with explicit size, spacing and typography, avoiding the global text-input styles.
+
+Verification: 459 tests across 35 files passed, including inherited checked state, custom-color override/restoration and neutral-palette contrast. Production build passed. Real Chrome verified a four-node custom-colored subtree with grandchildren, grey/strikethrough rendering on every descendant, unaffected siblings, original-color restoration, inherited settings, dark theme, reload persistence, PNG download and narrow-screen switch size. Screenshot was visually inspected for alignment with the existing node options panel. Existing explicit flags, persistence and one-operation undo semantics are unchanged.
+
 ## Task Dependency Graph
 
 ```json
@@ -909,7 +921,8 @@ Verification: 457 automated tests across 35 files, including 12 completion tests
     { "id": 51, "tasks": ["33.3"] },
     { "id": 52, "tasks": ["33.4"] },
     { "id": 53, "tasks": ["33.5"] },
-    { "id": 54, "tasks": ["33.6"] }
+    { "id": 54, "tasks": ["33.6"] },
+    { "id": 55, "tasks": ["33.7"] }
   ]
 }
 ```

@@ -198,7 +198,6 @@ it("renders PNG effective state and Markdown marks only at explicit nodes", () =
 });
 it("autosaves the checkbox while retaining focus, panel and unapplied styles", async () => {
   const map = nested();
-  map.root.completed = true;
   const original = useEditorStore.getState();
   const save = vi.fn(async (id: string, value: boolean) => {
     const next = applyOperation(useEditorStore.getState().map!, {
@@ -234,7 +233,7 @@ it("autosaves the checkbox while retaining focus, panel and unapplied styles", a
       name: "Mark branch as done",
     });
     expect(checkbox).not.toBeChecked();
-    expect(checkbox).toHaveAccessibleDescription(/Garden of ideas/);
+
     fireEvent.change(screen.getByLabelText("Background color"), {
       target: { value: "#ff0066" },
     });
@@ -300,9 +299,9 @@ it("blocks duplicate changes while saving and ignores late results after map nav
 
 it("keeps completed default text legible against every theme node background", () => {
   const css = readFileSync("src/client/styles.css", "utf8");
-  const backgrounds = [
-    ...css.matchAll(/--node-bg-(?:root|depth-\d):\s*(#[0-9a-f]+)/g),
-  ].map((m) => m[1]);
+  const backgrounds = [...css.matchAll(/--completed-bg:\s*(#[0-9a-f]+)/g)].map(
+    (m) => m[1],
+  );
   const foregrounds = [
     ...css.matchAll(/--completed-text:\s*(#[0-9a-f]+)/g),
   ].map((m) => m[1]);
@@ -311,12 +310,47 @@ it("keeps completed default text legible against every theme node background", (
       .map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
       .map((v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4))
       .reduce((sum, v, i) => sum + v * [0.2126, 0.7152, 0.0722][i], 0);
-  expect(backgrounds).toHaveLength(14);
+  expect(backgrounds).toHaveLength(2);
   for (const [i, bg] of backgrounds.entries()) {
     const a = luminance(bg),
-      b = luminance(foregrounds[Math.floor(i / 7)]);
+      b = luminance(foregrounds[i]);
     expect(
       (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05),
     ).toBeGreaterThanOrEqual(4.5);
+  }
+});
+it("shows inherited branches as checked without overwriting their explicit flags", () => {
+  const map = nested();
+  map.root.completed = true;
+  const original = useEditorStore.getState();
+  const save = vi.fn();
+  useEditorStore.setState({
+    map,
+    setNodeCompleted: save,
+    saving: "idle",
+    error: null,
+    loading: false,
+  });
+  const view = render(
+    <NodeContextMenu
+      node={map.root.children[0]}
+      root={false}
+      depth={1}
+      onClose={() => {}}
+    />,
+  );
+  try {
+    const checkbox = screen.getByRole("checkbox", {
+      name: "Mark branch as done",
+    });
+    expect(checkbox).toBeChecked();
+    expect(checkbox).toHaveAttribute("aria-disabled", "true");
+    expect(checkbox).toHaveAccessibleDescription(/Garden of ideas/);
+    fireEvent.click(checkbox);
+    expect(save).not.toHaveBeenCalled();
+    expect(map.root.children[0]).not.toHaveProperty("completed");
+  } finally {
+    view.unmount();
+    useEditorStore.setState(original);
   }
 });

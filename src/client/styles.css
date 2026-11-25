@@ -1281,10 +1281,14 @@ label {
 }
 
 :root {
-  --completed-text: #435349;
+  --completed-text: #51565e;
+  --completed-bg: #eceef0;
+  --completed-border: #a1a7ae;
 }
 [data-theme="dark"] {
-  --completed-text: #c0d0c6;
+  --completed-text: #c4c8ce;
+  --completed-bg: #34373c;
+  --completed-border: #717780;
 }
 .completion-mark {
   display: inline-block;
@@ -1292,11 +1296,71 @@ label {
   font-size: 0.85em;
   color: inherit;
 }
+.completed-node .node-label {
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
 .completion-settings {
-  padding: 0 1rem 0.75rem;
+  margin: 0 0 16px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
 }
 .completion-settings label {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 12px;
+  cursor: pointer;
+}
+.completion-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.completion-description {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 400;
+}
+.completion-settings input[type="checkbox"] {
+  appearance: none;
+  position: relative;
+  flex: 0 0 32px;
+  width: 32px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--border);
+  cursor: pointer;
+}
+.completion-settings input[type="checkbox"]::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--surface);
+  transition: transform 0.15s;
+}
+.completion-settings input[type="checkbox"]:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.completion-settings input[type="checkbox"]:checked::after {
+  transform: translateX(14px);
+}
+.completion-settings input[aria-disabled="true"] {
+  opacity: 0.6;
+  cursor: default;
+}
+.completion-settings .field-hint {
+  text-align: left;
+  line-height: 1.5;
 }

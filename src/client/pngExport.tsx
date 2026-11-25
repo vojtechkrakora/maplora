@@ -129,7 +129,7 @@ function PngNode({ data }: NodeProps<ExportNode>) {
   const { node, root, depth, left } = data;
   return (
     <div
-      className={`mind-node ${root ? "root-node" : ""}`}
+      className={`mind-node ${root ? "root-node" : ""} ${data.completed ? "completed-node" : ""}`}
       style={nodeAppearance(node.style, depth, data.completed)}
     >
       {root ? (

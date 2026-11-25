@@ -91,7 +91,7 @@ export function MindMapNode({ data, selected }: NodeProps<MindNode>) {
   };
   return (
     <div
-      className={`mind-node ${root ? "root-node" : ""} ${selected ? "is-selected" : ""}`}
+      className={`mind-node ${root ? "root-node" : ""} ${data.completed ? "completed-node" : ""} ${selected ? "is-selected" : ""}`}
       style={nodeAppearance(node.style, depth, data.completed)}
       onDoubleClick={() => s.beginEdit(node.id)}
     >

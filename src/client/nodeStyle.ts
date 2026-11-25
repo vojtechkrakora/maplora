@@ -13,13 +13,11 @@ export function nodeAppearance(
   completed = false,
 ): CSSProperties {
   return {
-    backgroundColor: style?.backgroundColor ?? defaultNodeBackground(depth),
-    color:
-      style?.textColor ??
-      (completed && !style?.backgroundColor
-        ? "var(--completed-text)"
-        : undefined),
-    borderColor: style?.borderColor,
+    backgroundColor: completed
+      ? "var(--completed-bg)"
+      : (style?.backgroundColor ?? defaultNodeBackground(depth)),
+    color: completed ? "var(--completed-text)" : style?.textColor,
+    borderColor: completed ? "var(--completed-border)" : style?.borderColor,
   };
 }
 
@@ -29,7 +27,9 @@ export function connectorAppearance(
 ): CSSProperties {
   const width = style?.connectorWidth ?? 2;
   return {
-    stroke: style?.connectorColor ?? "var(--edge)",
+    stroke: completed
+      ? "var(--completed-border)"
+      : (style?.connectorColor ?? "var(--edge)"),
     strokeWidth: width,
     ...(completed ? { opacity: 0.65 } : {}),
     strokeDasharray:
