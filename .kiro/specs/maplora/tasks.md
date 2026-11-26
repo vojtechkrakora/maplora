@@ -697,7 +697,13 @@ Current planning status: tasks 1–33 and the deployment checkpoint are complete
   - This task supersedes task 33's original ancestor-only inheritance, direct parent reopening and no-progress rules. Task 33 remains a historical implementation record.
   - _Requirements: 31.1–31.19_
 
-- [x] 23. Final checkpoint — all tests pass, Docker build verified (tasks 1–34)
+- [x] 35. Make subtree visibility controls clearly discoverable
+  - [x] Show a bordered 28px `+` with a separate hidden-descendant count on collapsed nodes, and `−` on expanded branches
+  - [x] Share live/measurement dimensions; expose native button labels, tooltips and `aria-expanded`; preserve existing saved state, nested visibility, completion and undo/redo
+  - [x] Verify existing tests, build, both themes and hide/reveal/reload in a real browser; deploy to local Docker
+  - _Requirements: 12.1–12.6_
+
+- [x] 23. Final checkpoint — all tests pass, Docker build verified (tasks 1–35)
   - Ensure all tests pass, ask the user if questions arise.
 
 ---
@@ -881,6 +887,12 @@ Verification: all 468 tests across 36 files passed, including nine new progress/
 
 Isolated Docker Compose verification passed image/static assets/API, persistence, duplication/import, restart/recreation and trash/restoration. The local service was then safely replaced with the verified image after a consistent backup. Health and served progress UI passed; all 17 original JSON files were byte-for-byte unchanged and the existing library retained all 10 maps.
 
+## Task 35 Implementation Notes
+
+Implemented on 2026-11-26: existing subtree collapse/expand controls are now clearly bordered 28px buttons. Expanded branches show `−`; hidden branches show a large `+` and a separate count of all hidden descendants, with an accented background/border. Native `aria-expanded`, labels and action tooltips clarify the control. Live and hidden-measurement markup share geometry. The existing queued collapse operation, persistence, nested collapse states, completion, undo/redo, root/leaf rules and full-tree export behaviour are unchanged.
+
+Verification: all 468 existing tests across 36 files passed, production build and formatting/diff checks passed. Native Chrome on isolated data verified the complete subtree disappearing, visible plus/count, nested collapsed states surviving expansion, undo/redo, keyboard activation, reload persistence and both themes, without browser exceptions. The production Docker image built successfully and was deployed after a consistent backup. Container health, served control markup and byte-for-byte preservation of all existing JSON data passed. No new dependency, schema or API was introduced.
+
 ## Task Dependency Graph
 
 ```json
@@ -946,7 +958,8 @@ Isolated Docker Compose verification passed image/static assets/API, persistence
     { "id": 57, "tasks": ["34.2"] },
     { "id": 58, "tasks": ["34.3"] },
     { "id": 59, "tasks": ["34.4"] },
-    { "id": 60, "tasks": ["34.5"] }
+    { "id": 60, "tasks": ["34.5"] },
+    { "id": 61, "tasks": ["35"] }
   ]
 }
 ```

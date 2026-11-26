@@ -152,14 +152,28 @@ export function MindMapNode({ data, selected }: NodeProps<MindNode>) {
       <CompletionProgress percentage={data.percentage} />
       {!root && node.children.length > 0 && (
         <button
-          className="collapse-toggle nodrag"
+          className="collapse-toggle nodrag nopan"
+          type="button"
+          aria-expanded={!node.collapsed}
+          title={
+            node.collapsed
+              ? `Show ${allNodes(node).length - 1} hidden nodes`
+              : "Hide subtree"
+          }
           aria-label={`${node.collapsed ? "Expand" : "Collapse"} ${node.text}`}
           onClick={(e) => {
             e.stopPropagation();
             void s.toggleCollapse(node.id);
           }}
         >
-          {node.collapsed ? `+${allNodes(node).length - 1}` : "−"}
+          <span className="collapse-symbol" aria-hidden="true">
+            {node.collapsed ? "+" : "−"}
+          </span>
+          {node.collapsed && (
+            <span className="collapse-count" aria-hidden="true">
+              {allNodes(node).length - 1}
+            </span>
+          )}
         </button>
       )}
     </div>
@@ -633,8 +647,15 @@ export function MindMapCanvas() {
             </span>
             <CompletionProgress percentage={completion.get(n.id)?.percentage} />
             {n !== map.root && n.children.length > 0 && (
-              <span className="collapse-toggle">
-                {n.collapsed ? `+${allNodes(n).length - 1}` : "−"}
+              <span className="collapse-toggle" aria-expanded={!n.collapsed}>
+                <span className="collapse-symbol">
+                  {n.collapsed ? "+" : "−"}
+                </span>
+                {n.collapsed && (
+                  <span className="collapse-count">
+                    {allNodes(n).length - 1}
+                  </span>
+                )}
               </span>
             )}
           </div>

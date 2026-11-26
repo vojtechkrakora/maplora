@@ -263,7 +263,7 @@ The following requirements are planned enhancements to be implemented after the 
 
 1. WHEN a non-root node has one or more children and is in the expanded state, THE Editor SHALL display a collapse control on that node.
 2. WHEN the user activates the collapse control on a node, THE Editor SHALL hide all descendants of that node and SHALL display a visual indicator on that node that is visually distinct from the expanded-state indicator.
-3. WHEN a node is in the collapsed state, THE Editor SHALL display an expand control on that node.
+3. WHEN a node is in the collapsed state, THE Editor SHALL display a clearly visible bordered expand button containing a large `+` and a separate count of all hidden descendants. Expanded nodes SHALL show `−`. The native button SHALL expose `aria-expanded`, an accessible expand/collapse label and a tooltip explaining the action. It SHALL remain visible in both themes and on completed nodes, without changing completion or nested collapse state.
 4. WHEN the user activates the expand control on a node, THE Editor SHALL reveal the direct children of that node, with each child displayed in its own previously persisted collapsed or expanded state.
 5. THE Editor SHALL persist the collapsed or expanded state of every node as part of the Map File so that the state is restored when the map is reopened.
 6. THE Editor SHALL NOT display a collapse control on the root node.

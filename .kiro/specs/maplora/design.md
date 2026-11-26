@@ -402,6 +402,10 @@ Properties 26–30 cover branch completion, atomic history, stored-state transfe
 
 ---
 
+## Subtree visibility controls (Requirement 12)
+
+Non-root nodes with children always expose an inline 28px bordered toggle. Expanded branches show `−`; collapsed branches show a larger `+` plus the count of all hidden descendants, with an accent border/background distinct from the expanded control. Keep native button semantics, `aria-expanded`, descriptive labels/tooltips and React Flow `nodrag`/`nopan` behaviour. The live control and hidden measurement use matching icon/count markup and dimensions. Existing queued `toggleCollapse` persists the state with undo/redo and rollback; hidden descendants retain text, completion and individual collapse states. Root/leaf behaviour and full-tree exports are unchanged.
+
 ## Canvas / Rendering
 
 ### React Flow + SVG
